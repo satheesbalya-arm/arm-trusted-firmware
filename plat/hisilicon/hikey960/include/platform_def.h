@@ -4,10 +4,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef __PLATFORM_DEF_H__
-#define __PLATFORM_DEF_H__
+#ifndef PLATFORM_DEF_H
+#define PLATFORM_DEF_H
 
 #include <arch.h>
+#include <utils_def.h>
 #include "../hikey960_def.h"
 
 /* Special value used to verify platform parameters from BL2 to BL3-1 */
@@ -18,7 +19,7 @@
  */
 
 /* Size of cacheable stacks */
-#define PLATFORM_STACK_SIZE		0x800
+#define PLATFORM_STACK_SIZE		0x1000
 
 #define FIRMWARE_WELCOME_STR		"Booting Trusted Firmware\n"
 
@@ -31,8 +32,8 @@
 #define PLAT_NUM_PWR_DOMAINS		(PLATFORM_CORE_COUNT + \
 					 PLATFORM_CLUSTER_COUNT + 1)
 
-#define PLAT_MAX_RET_STATE		1
-#define PLAT_MAX_OFF_STATE		2
+#define PLAT_MAX_RET_STATE		U(1)
+#define PLAT_MAX_OFF_STATE		U(2)
 
 #define MAX_IO_DEVICES			3
 #define MAX_IO_HANDLES			4
@@ -48,8 +49,8 @@
  * BL1 specific defines.
  */
 #define BL1_RO_BASE			(0x1AC00000)
-#define BL1_RO_LIMIT			(BL1_RO_BASE + 0x10000)
-#define BL1_RW_BASE			(BL1_RO_LIMIT)		/* 1AC1_0000 */
+#define BL1_RO_LIMIT			(BL1_RO_BASE + 0x20000)
+#define BL1_RW_BASE			(BL1_RO_LIMIT)		/* 1AC2_0000 */
 #define BL1_RW_SIZE			(0x00188000)
 #define BL1_RW_LIMIT			(0x1B000000)
 
@@ -103,7 +104,7 @@
 #define NS_BL1U_SIZE			(0x00100000)
 #define NS_BL1U_LIMIT			(NS_BL1U_BASE + NS_BL1U_SIZE)
 
-#define HIKEY960_NS_IMAGE_OFFSET	(0x1AC18000)	/* offset in l-loader */
+#define HIKEY960_NS_IMAGE_OFFSET	(0x1AC28000)	/* offset in l-loader */
 #define HIKEY960_NS_TMP_OFFSET		(0x1AE00000)
 
 #define SCP_BL2_BASE			(0x89C80000)
@@ -140,4 +141,4 @@
 #define CACHE_WRITEBACK_SHIFT		6
 #define CACHE_WRITEBACK_GRANULE		(1 << CACHE_WRITEBACK_SHIFT)
 
-#endif /* __PLATFORM_DEF_H__ */
+#endif /* PLATFORM_DEF_H */

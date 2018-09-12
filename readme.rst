@@ -30,18 +30,28 @@ described in the `Contributing Guidelines`_.
 This project contains code from other projects as listed below. The original
 license text is included in those source files.
 
--  The stdlib source code is derived from FreeBSD code, which uses various
-   BSD licenses, including BSD-3-Clause and BSD-2-Clause.
+-  The libc source code is derived from `FreeBSD`_ and `SCC`_. FreeBSD uses
+   various BSD licenses, including BSD-3-Clause and BSD-2-Clause. The SCC code
+   is used under the BSD-3-Clause license with the author's permission.
 
--  The libfdt source code is dual licensed. It is used by this project under
-   the terms of the BSD-2-Clause license.
+-  The libfdt source code is disjunctively dual licensed
+   (GPL-2.0+ OR BSD-2-Clause). It is used by this project under the terms of
+   the BSD-2-Clause license. Any contributions to this code must be made under
+   the terms of both licenses.
 
--  The LLVM compiler-rt source code is dual licensed. It is used by this
-   project under the terms of the NCSA license (also known as the University of
-   Illinois/NCSA Open Source License).
+-  The LLVM compiler-rt source code is disjunctively dual licensed
+   (NCSA OR MIT). It is used by this project under the terms of the NCSA
+   license (also known as the University of Illinois/NCSA Open Source License),
+   which is a permissive license compatible with BSD-3-Clause. Any
+   contributions to this code must be made under the terms of both licenses.
 
 -  The zlib source code is licensed under the Zlib license, which is a
    permissive license compatible with BSD-3-Clause.
+
+-  Some STMicroelectronics platform source code is disjunctively dual licensed
+   (GPL-2.0+ OR BSD-3-Clause). It is used by this project under the terms of the
+   BSD-3-Clause license. Any contributions to this code must be made under the
+   terms of both licenses.
 
 This release
 ------------
@@ -219,6 +229,13 @@ See the `Contributing Guidelines`_ for information on how to contribute to this
 project and the `Acknowledgments`_ file for a list of contributors to the
 project.
 
+IRC channel
+~~~~~~~~~~~
+
+Development discussion takes place on the #trusted-firmware-a channel
+on the Freenode IRC network. This is not an official support channel.
+If you have an issue to raise, please use the `GitHub issue tracker`_.
+
 Feedback and support
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -259,3 +276,5 @@ Arm licensees may contact Arm directly via their partner managers.
 .. _Change Log: ./docs/change-log.rst
 .. _User Guide: ./docs/user-guide.rst
 .. _Porting Guide: ./docs/porting-guide.rst
+.. _FreeBSD: http://www.freebsd.org
+.. _SCC: http://www.simple-cc.org/

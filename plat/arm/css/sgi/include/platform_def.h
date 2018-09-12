@@ -4,15 +4,18 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef __PLATFORM_DEF_H__
-#define __PLATFORM_DEF_H__
+#ifndef PLATFORM_DEF_H
+#define PLATFORM_DEF_H
 
 #include <arm_def.h>
+#include <arm_spm_def.h>
 #include <board_arm_def.h>
 #include <board_css_def.h>
 #include <common_def.h>
 #include <css_def.h>
 #include <soc_css_def.h>
+#include <utils_def.h>
+#include <xlat_tables_defs.h>
 
 #define CSS_SGI_MAX_CPUS_PER_CLUSTER	4
 
@@ -57,7 +60,7 @@
 #define PLAT_ARM_NSRAM_BASE		0x06000000
 #define PLAT_ARM_NSRAM_SIZE		0x00080000	/* 512KB */
 
-#define PLAT_MAX_PWR_LVL		1
+#define PLAT_MAX_PWR_LVL		U(1)
 
 #define PLAT_ARM_G1S_IRQS		ARM_G1S_IRQS,			\
 					CSS_IRQ_MHU
@@ -74,15 +77,59 @@
 					CSS_SGI_DEVICE_SIZE,	\
 					MT_DEVICE | MT_RW | MT_SECURE)
 
-#define PLAT_CSS_SCP_COM_SHARED_MEM_BASE	0x45400000
-#define SGI_BOOT_CFG_ADDR			0x45410000
-#define PLAT_CSS_PRIMARY_CPU_SHIFT		8
-#define PLAT_CSS_PRIMARY_CPU_BIT_WIDTH		6
-
 /* GIC related constants */
 #define PLAT_ARM_GICD_BASE		0x30000000
 #define PLAT_ARM_GICC_BASE		0x2C000000
 #define PLAT_ARM_GICR_BASE		0x300C0000
+
+/* Map the secure region for access from S-EL0 */
+#define PLAT_ARM_SECURE_MAP_DEVICE	MAP_REGION_FLAT(	\
+					SOC_CSS_DEVICE_BASE,	\
+					SOC_CSS_DEVICE_SIZE,	\
+					MT_DEVICE | MT_RW | MT_SECURE | MT_USER)
+
+#if RAS_EXTENSION
+/* Allocate 128KB for CPER buffers */
+#define PLAT_SP_BUF_BASE			ULL(0x20000)
+
+#define PLAT_ARM_SP_IMAGE_STACK_BASE		(ARM_SP_IMAGE_NS_BUF_BASE + \
+						ARM_SP_IMAGE_NS_BUF_SIZE + \
+						PLAT_SP_BUF_BASE)
+
+/* Platform specific SMC FID's used for RAS */
+#define SP_DMC_ERROR_INJECT_EVENT_AARCH64	0xC4000042
+#define SP_DMC_ERROR_INJECT_EVENT_AARCH32	0x84000042
+
+#define SP_DMC_ERROR_OVERFLOW_EVENT_AARCH64	0xC4000043
+#define SP_DMC_ERROR_OVERFLOW_EVENT_AARCH32	0x84000043
+
+#define SP_DMC_ERROR_ECC_EVENT_AARCH64		0xC4000044
+#define SP_DMC_ERROR_ECC_EVENT_AARCH32		0x84000044
+
+/* ARM SDEI dynamic shared event numbers */
+#define SGI_SDEI_DS_EVENT_0			804
+#define SGI_SDEI_DS_EVENT_1			805
+
+#define PLAT_ARM_PRIVATE_SDEI_EVENTS	\
+	SDEI_DEFINE_EVENT_0(ARM_SDEI_SGI), \
+	SDEI_EXPLICIT_EVENT(SGI_SDEI_DS_EVENT_0, SDEI_MAPF_CRITICAL), \
+	SDEI_EXPLICIT_EVENT(SGI_SDEI_DS_EVENT_1, SDEI_MAPF_CRITICAL),
+#define PLAT_ARM_SHARED_SDEI_EVENTS
+
+#define ARM_SP_CPER_BUF_BASE			(ARM_SP_IMAGE_NS_BUF_BASE + \
+						ARM_SP_IMAGE_NS_BUF_SIZE)
+#define ARM_SP_CPER_BUF_SIZE			ULL(0x20000)
+#define ARM_SP_CPER_BUF_MMAP			MAP_REGION2(		\
+						ARM_SP_CPER_BUF_BASE,	\
+						ARM_SP_CPER_BUF_BASE,	\
+						ARM_SP_CPER_BUF_SIZE,	\
+						MT_RW_DATA | MT_NS | MT_USER, \
+						PAGE_SIZE)
+
+#else
+#define PLAT_ARM_SP_IMAGE_STACK_BASE	(ARM_SP_IMAGE_NS_BUF_BASE +	\
+					 ARM_SP_IMAGE_NS_BUF_SIZE)
+#endif /* RAS_EXTENSION */
 
 /* Platform ID address */
 #define SSC_VERSION                     (SSC_REG_BASE + SSC_VERSION_OFFSET)
@@ -108,4 +155,4 @@
 					 V2M_FLASH0_SIZE - V2M_FLASH_BLOCK_SIZE)
 
 
-#endif /* __PLATFORM_DEF_H__ */
+#endif /* PLATFORM_DEF_H */

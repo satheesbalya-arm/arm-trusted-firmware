@@ -52,9 +52,9 @@ Install the required packages to build TF-A with the following command:
 
 ::
 
-    sudo apt-get install build-essential gcc make git libssl-dev
+    sudo apt-get install device-tree-compiler build-essential gcc make git libssl-dev
 
-TF-A has been tested with `Linaro Release 17.10`_.
+TF-A has been tested with Linaro Release 18.04.
 
 Download and install the AArch32 or AArch64 little-endian GCC cross compiler.
 The `Linaro Release Notes`_ documents which version of the compiler to use for a
@@ -62,19 +62,20 @@ given Linaro Release. Also, these `Linaro instructions`_ provide further
 guidance and a script, which can be used to download Linaro deliverables
 automatically.
 
-Optionally, TF-A can be built using clang or Arm Compiler 6.
-See instructions below on how to switch the default compiler.
+Optionally, TF-A can be built using clang version 4.0 or newer or Arm
+Compiler 6. See instructions below on how to switch the default compiler.
 
 In addition, the following optional packages and tools may be needed:
 
--  ``device-tree-compiler`` package if you need to rebuild the Flattened Device
-   Tree (FDT) source files (``.dts`` files) provided with this software.
+-  ``device-tree-compiler`` (dtc) package if you need to rebuild the Flattened Device
+   Tree (FDT) source files (``.dts`` files) provided with this software. The
+   version of dtc must be 1.4.6 or above.
 
 -  For debugging, Arm `Development Studio 5 (DS-5)`_.
 
 -  To create and modify the diagram files included in the documentation, `Dia`_.
    This tool can be found in most Linux distributions. Inkscape is needed to
-   generate the actual *.png files.
+   generate the actual \*.png files.
 
 Getting the TF-A source code
 ----------------------------
@@ -103,10 +104,14 @@ Building TF-A
 
        export CROSS_COMPILE=<path-to-aarch32-gcc>/bin/arm-linux-gnueabihf-
 
-   It is possible to build TF-A using clang or Arm Compiler 6. To do so
-   ``CC`` needs to point to the clang or armclang binary. Only the compiler
-   is switched; the assembler and linker need to be provided by the GNU
-   toolchain, thus ``CROSS_COMPILE`` should be set as described above.
+   It is possible to build TF-A using Clang or Arm Compiler 6. To do so
+   ``CC`` needs to point to the clang or armclang binary, which will
+   also select the clang or armclang assembler. Be aware that the
+   GNU linker is used by default.  In case of being needed the linker
+   can be overriden using the ``LD`` variable. Clang linker version 6 is
+   known to work with TF-A.
+
+   In both cases ``CROSS_COMPILE`` should be set as described above.
 
    Arm Compiler 6 will be selected when the base name of the path assigned
    to ``CC`` matches the string 'armclang'.
@@ -206,6 +211,10 @@ performed.
 
 Common build options
 ^^^^^^^^^^^^^^^^^^^^
+
+-  ``AARCH32_INSTRUCTION_SET``: Choose the AArch32 instruction set that the
+   compiler should use. Valid values are T32 and A32. It defaults to T32 due to
+   code having a smaller resulting size.
 
 -  ``AARCH32_SP`` : Choose the AArch32 Secure Payload component to be built as
    as the BL32 image when ``ARCH=aarch32``. The value should be the path to the
@@ -346,6 +355,27 @@ Common build options
    that is only required for the assertion and does not fit in the assertion
    itself.
 
+-  ``ENABLE_BACKTRACE``: This option controls whether to enables backtrace
+   dumps or not. It is supported in both AArch64 and AArch32. However, in
+   AArch32 the format of the frame records are not defined in the AAPCS and they
+   are defined by the implementation. This implementation of backtrace only
+   supports the format used by GCC when T32 interworking is disabled. For this
+   reason enabling this option in AArch32 will force the compiler to only
+   generate A32 code. This option is enabled by default only in AArch64 debug
+   builds, but this behaviour can be overriden in each platform's Makefile or in
+   the build command line.
+
+-  ``ENABLE_MPAM_FOR_LOWER_ELS``: Boolean option to enable lower ELs to use MPAM
+   feature. MPAM is an optional Armv8.4 extension that enables various memory
+   system components and resources to define partitions; software running at
+   various ELs can assign themselves to desired partition to control their
+   performance aspects.
+
+   When this option is set to ``1``, EL3 allows lower ELs to access their own
+   MPAM registers without trapping into EL3. This option doesn't make use of
+   partitioning in EL3, however. Platform initialisation code should configure
+   and use partitions in EL3 as required. This option defaults to ``0``.
+
 -  ``ENABLE_PMF``: Boolean option to enable support for optional Performance
    Measurement Framework(PMF). Default is 0.
 
@@ -441,8 +471,10 @@ Common build options
    .. __: `platform-interrupt-controller-API.rst`
    .. __: `interrupt-framework-design.rst`
 
--  ``HANDLE_EA_EL3_FIRST``: When defined External Aborts and SError Interrupts
-   will be always trapped in EL3 i.e. in BL31 at runtime.
+-  ``HANDLE_EA_EL3_FIRST``: When set to ``1``, External Aborts and SError
+   Interrupts will be always trapped in EL3 i.e. in BL31 at runtime. When set to
+   ``0`` (default), these exceptions will be trapped in the current exception
+   level (or in EL1 if the current exception level is EL0).
 
 -  ``HW_ASSISTED_COHERENCY``: On most Arm systems to-date, platform-specific
    software operations are required for CPUs to enter and exit coherency.
@@ -481,8 +513,8 @@ Common build options
 -  ``LOAD_IMAGE_V2``: Boolean option to enable support for new version (v2) of
    image loading, which provides more flexibility and scalability around what
    images are loaded and executed during boot. Default is 0.
-   Note: ``TRUSTED_BOARD_BOOT`` is currently only supported for AArch64 when
-   ``LOAD_IMAGE_V2`` is enabled.
+
+   Note: this flag must be enabled for AArch32 builds.
 
 -  ``LOG_LEVEL``: Chooses the log level, which controls the amount of console log
    output compiled into the build. This should be one of the following:
@@ -1077,7 +1109,7 @@ images with support for these features:
    is important to use a version that is compatible with TF-A and fixes any
    known security vulnerabilities. See `mbed TLS Security Center`_ for more
    information. The latest version of TF-A is tested with tag
-   ``mbedtls-2.10.0``.
+   ``mbedtls-2.12.0``.
 
    The ``drivers/auth/mbedtls/mbedtls_*.mk`` files contain the list of mbed TLS
    source files the modules depend upon.
@@ -1607,26 +1639,28 @@ The latest version of the AArch64 build of TF-A has been tested on the following
 Arm FVPs without shifted affinities, and that do not support threaded CPU cores
 (64-bit host machine only).
 
-NOTE: Unless otherwise stated, the model version is Version 11.2 Build 11.2.33.
+NOTE: Unless otherwise stated, the model version is Version 11.4 Build 37.
 
--  ``Foundation_Platform``
--  ``FVP_Base_AEMv8A-AEMv8A`` (and also Version 9.0, Build 0.8.9005)
+-  ``FVP_Base_Aresx4``
+-  ``FVP_Base_AEMv8A-AEMv8A``
+-  ``FVP_Base_AEMv8A-AEMv8A-AEMv8A-AEMv8A-CCN502``
+-  ``FVP_Base_AEMv8A-AEMv8A``
+-  ``FVP_Base_RevC-2xAEMv8A``
+-  ``FVP_Base_Cortex-A32x4``
 -  ``FVP_Base_Cortex-A35x4``
 -  ``FVP_Base_Cortex-A53x4``
+-  ``FVP_Base_Cortex-A55x4+Cortex-A75x4``
+-  ``FVP_Base_Cortex-A55x4``
 -  ``FVP_Base_Cortex-A57x4-A53x4``
 -  ``FVP_Base_Cortex-A57x4``
 -  ``FVP_Base_Cortex-A72x4-A53x4``
 -  ``FVP_Base_Cortex-A72x4``
 -  ``FVP_Base_Cortex-A73x4-A53x4``
 -  ``FVP_Base_Cortex-A73x4``
-
-Additionally, the AArch64 build was tested on the following Arm FVPs with
-shifted affinities, supporting threaded CPU cores (64-bit host machine only).
-
--  ``FVP_Base_Cortex-A55x4-A75x4`` (Version 0.0, build 0.0.4395)
--  ``FVP_Base_Cortex-A55x4`` (Version 0.0, build 0.0.4395)
--  ``FVP_Base_Cortex-A75x4`` (Version 0.0, build 0.0.4395)
--  ``FVP_Base_RevC-2xAEMv8A``
+-  ``FVP_Base_Cortex-A75x4``
+-  ``FVP_Base_Cortex-A76x4``
+-  ``FVP_CSS_SGI-575`` (Version 11.3 build 40)
+-  ``Foundation_Platform``
 
 The latest version of the AArch32 build of TF-A has been tested on the following
 Arm FVPs without shifted affinities, and that do not support threaded CPU cores
@@ -2038,7 +2072,6 @@ wakeup interrupt from RTC.
 .. _Linaro: `Linaro Release Notes`_
 .. _Linaro Release: `Linaro Release Notes`_
 .. _Linaro Release Notes: https://community.arm.com/dev-platforms/w/docs/226/old-linaro-release-notes
-.. _Linaro Release 17.10: https://community.arm.com/dev-platforms/w/docs/226/old-linaro-release-notes#1710
 .. _Linaro instructions: https://community.arm.com/dev-platforms/w/docs/304/linaro-software-deliverables
 .. _Instructions for using Linaro's deliverables on Juno: https://community.arm.com/dev-platforms/w/docs/303/juno
 .. _Arm Platforms Portal: https://community.arm.com/dev-platforms/

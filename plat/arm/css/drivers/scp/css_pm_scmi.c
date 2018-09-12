@@ -79,8 +79,7 @@ ARM_INSTANTIATE_LOCK;
  */
 void css_scp_suspend(const struct psci_power_state *target_state)
 {
-	int lvl, ret;
-	uint32_t scmi_pwr_state = 0;
+	int ret;
 
 	/* At least power domain level 0 should be specified to be suspended */
 	assert(target_state->pwr_domain_state[ARM_PWR_LVL0] ==
@@ -99,13 +98,14 @@ void css_scp_suspend(const struct psci_power_state *target_state)
 		}
 		return;
 	}
-
+#if !HW_ASSISTED_COHERENCY
+	int lvl;
+	uint32_t scmi_pwr_state = 0;
 	/*
 	 * If we reach here, then assert that power down at system power domain
 	 * level is running.
 	 */
-	assert(target_state->pwr_domain_state[CSS_SYSTEM_PWR_DMN_LVL] ==
-							ARM_LOCAL_STATE_RUN);
+	assert(css_system_pwr_state(target_state) == ARM_LOCAL_STATE_RUN);
 
 	/* For level 0, specify `scmi_power_state_sleep` as the power state */
 	SCMI_SET_PWR_STATE_LVL(scmi_pwr_state, ARM_PWR_LVL0,
@@ -136,13 +136,14 @@ void css_scp_suspend(const struct psci_power_state *target_state)
 				ret);
 		panic();
 	}
+#endif
 }
 
 /*
  * Helper function to turn off a CPU power domain and its parent power domains
  * if applicable.
  */
-void css_scp_off(const psci_power_state_t *target_state)
+void css_scp_off(const struct psci_power_state *target_state)
 {
 	int lvl = 0, ret;
 	uint32_t scmi_pwr_state = 0;
@@ -152,8 +153,7 @@ void css_scp_off(const psci_power_state_t *target_state)
 							ARM_LOCAL_STATE_OFF);
 
 	/* PSCI CPU OFF cannot be used to turn OFF system power domain */
-	assert(target_state->pwr_domain_state[CSS_SYSTEM_PWR_DMN_LVL] ==
-							ARM_LOCAL_STATE_RUN);
+	assert(css_system_pwr_state(target_state) == ARM_LOCAL_STATE_RUN);
 
 	for (; lvl <= PLAT_MAX_PWR_LVL; lvl++) {
 		if (target_state->pwr_domain_state[lvl] == ARM_LOCAL_STATE_RUN)
@@ -298,13 +298,35 @@ void __dead2 css_scp_sys_reboot(void)
 	css_scp_system_off(SCMI_SYS_PWR_COLD_RESET);
 }
 
-scmi_channel_plat_info_t plat_css_scmi_plat_info = {
+static scmi_channel_plat_info_t plat_css_scmi_plat_info = {
 		.scmi_mbx_mem = CSS_SCMI_PAYLOAD_BASE,
 		.db_reg_addr = PLAT_CSS_MHU_BASE + CSS_SCMI_MHU_DB_REG_OFF,
 		.db_preserve_mask = 0xfffffffe,
 		.db_modify_mask = 0x1,
 		.ring_doorbell = &mhu_ring_doorbell,
 };
+
+static int scmi_ap_core_init(scmi_channel_t *ch)
+{
+#if PROGRAMMABLE_RESET_ADDRESS
+	uint32_t version;
+	int ret;
+
+	ret = scmi_proto_version(ch, SCMI_AP_CORE_PROTO_ID, &version);
+	if (ret != SCMI_E_SUCCESS) {
+		WARN("SCMI AP core protocol version message failed\n");
+		return -1;
+	}
+
+	if (!is_scmi_version_compatible(SCMI_AP_CORE_PROTO_VER, version)) {
+		WARN("SCMI AP core protocol version 0x%x incompatible with driver version 0x%x\n",
+			version, SCMI_AP_CORE_PROTO_VER);
+		return -1;
+	}
+	INFO("SCMI AP core protocol version 0x%x detected\n", version);
+#endif
+	return 0;
+}
 
 void plat_arm_pwrc_setup(void)
 {
@@ -313,6 +335,10 @@ void plat_arm_pwrc_setup(void)
 	scmi_handle = scmi_init(&channel);
 	if (scmi_handle == NULL) {
 		ERROR("SCMI Initialization failed\n");
+		panic();
+	}
+	if (scmi_ap_core_init(&channel) < 0) {
+		ERROR("SCMI AP core protocol initialization failed\n");
 		panic();
 	}
 }
@@ -386,3 +412,18 @@ int css_system_reset2(int is_vendor, int reset_type, u_register_t cookie)
 	 */
 	return 0;
 }
+
+#if PROGRAMMABLE_RESET_ADDRESS
+void plat_arm_program_trusted_mailbox(uintptr_t address)
+{
+	int ret;
+
+	assert(scmi_handle);
+	ret = scmi_ap_core_set_reset_addr(scmi_handle, address,
+		SCMI_AP_CORE_LOCK_ATTR);
+	if (ret != SCMI_E_SUCCESS) {
+		ERROR("CSS: Failed to program reset address: %d\n", ret);
+		panic();
+	}
+}
+#endif

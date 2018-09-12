@@ -35,9 +35,14 @@ CASSERT(BL2_BASE >= ARM_TB_FW_CONFIG_LIMIT, assert_bl2_base_overflows);
 #pragma weak bl2_plat_arch_setup
 #pragma weak bl2_plat_sec_mem_layout
 
+#define MAP_BL2_TOTAL		MAP_REGION_FLAT(			\
+					bl2_tzram_layout.total_base,	\
+					bl2_tzram_layout.total_size,	\
+					MT_MEMORY | MT_RW | MT_SECURE)
+
 #if LOAD_IMAGE_V2
 
-#pragma weak bl2_plat_handle_post_image_load
+#pragma weak arm_bl2_plat_handle_post_image_load
 
 #else /* LOAD_IMAGE_V2 */
 
@@ -172,7 +177,8 @@ struct entry_point_info *bl2_plat_get_bl31_ep_info(void)
  * in x0. This memory layout is sitting at the base of the free trusted SRAM.
  * Copy it to a safe location before its reclaimed by later BL2 functionality.
  ******************************************************************************/
-void arm_bl2_early_platform_setup(uintptr_t tb_fw_config, meminfo_t *mem_layout)
+void arm_bl2_early_platform_setup(uintptr_t tb_fw_config,
+				  struct meminfo *mem_layout)
 {
 	/* Initialize the console to provide early debug support */
 	arm_console_boot_init();
@@ -231,23 +237,31 @@ void bl2_platform_setup(void)
  ******************************************************************************/
 void arm_bl2_plat_arch_setup(void)
 {
-	arm_setup_page_tables(bl2_tzram_layout.total_base,
-			      bl2_tzram_layout.total_size,
-			      BL_CODE_BASE,
-			      BL_CODE_END,
-			      BL_RO_DATA_BASE,
-			      BL_RO_DATA_END
+
 #if USE_COHERENT_MEM
-			      , BL_COHERENT_RAM_BASE,
-			      BL_COHERENT_RAM_END
+	/* Ensure ARM platforms dont use coherent memory in BL2 */
+	assert((BL_COHERENT_RAM_END - BL_COHERENT_RAM_BASE) == 0U);
 #endif
-			      );
+
+	const mmap_region_t bl_regions[] = {
+		MAP_BL2_TOTAL,
+		ARM_MAP_BL_RO,
+#if USE_ROMLIB
+		ARM_MAP_ROMLIB_CODE,
+		ARM_MAP_ROMLIB_DATA,
+#endif
+		{0}
+	};
+
+	arm_setup_page_tables(bl_regions, plat_arm_get_mmap());
 
 #ifdef AARCH32
-	enable_mmu_secure(0);
+	enable_mmu_svc_mon(0);
 #else
 	enable_mmu_el1(0);
 #endif
+
+	arm_setup_romlib();
 }
 
 void bl2_plat_arch_setup(void)
@@ -314,9 +328,14 @@ int arm_bl2_handle_post_image_load(unsigned int image_id)
  * This function can be used by the platforms to update/use image
  * information for given `image_id`.
  ******************************************************************************/
-int bl2_plat_handle_post_image_load(unsigned int image_id)
+int arm_bl2_plat_handle_post_image_load(unsigned int image_id)
 {
 	return arm_bl2_handle_post_image_load(image_id);
+}
+
+int bl2_plat_handle_post_image_load(unsigned int image_id)
+{
+	return arm_bl2_plat_handle_post_image_load(image_id);
 }
 
 #else /* LOAD_IMAGE_V2 */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2018, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -11,6 +11,7 @@
 #include <mbr.h>
 #include <partition.h>
 #include <platform.h>
+#include <stdio.h>
 #include <string.h>
 
 static uint8_t mbr_sector[PARTITION_BLOCK_SIZE];

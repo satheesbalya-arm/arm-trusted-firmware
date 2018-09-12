@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef __XLAT_TABLES_V2_H__
-#define __XLAT_TABLES_V2_H__
+#ifndef XLAT_TABLES_V2_H
+#define XLAT_TABLES_V2_H
 
 #include <xlat_tables_defs.h>
 #include <xlat_tables_v2_helpers.h>
@@ -27,7 +27,7 @@
 
 /* Helper macro to define an mmap_region_t. */
 #define MAP_REGION(_pa, _va, _sz, _attr)	\
-	_MAP_REGION_FULL_SPEC(_pa, _va, _sz, _attr, REGION_DEFAULT_GRANULARITY)
+	MAP_REGION_FULL_SPEC(_pa, _va, _sz, _attr, REGION_DEFAULT_GRANULARITY)
 
 /* Helper macro to define an mmap_region_t with an identity mapping. */
 #define MAP_REGION_FLAT(_adr, _sz, _attr)			\
@@ -44,7 +44,7 @@
  * equivalent to the MAP_REGION() macro.
  */
 #define MAP_REGION2(_pa, _va, _sz, _attr, _gr)			\
-	_MAP_REGION_FULL_SPEC(_pa, _va, _sz, _attr, _gr)
+	MAP_REGION_FULL_SPEC(_pa, _va, _sz, _attr, _gr)
 
 /*
  * Shifts and masks to access fields of an mmap attribute
@@ -121,10 +121,13 @@ typedef struct mmap_region {
 } mmap_region_t;
 
 /*
- * Translation regimes supported by this library.
+ * Translation regimes supported by this library. EL_REGIME_INVALID tells the
+ * library to detect it at runtime.
  */
 #define EL1_EL0_REGIME		1
+#define EL2_REGIME		2
 #define EL3_REGIME		3
+#define EL_REGIME_INVALID	-1
 
 /*
  * Declare the translation context type.
@@ -161,12 +164,11 @@ typedef struct xlat_ctx xlat_ctx_t;
  */
 #define REGISTER_XLAT_CONTEXT(_ctx_name, _mmap_count, _xlat_tables_count, \
 			_virt_addr_space_size, _phy_addr_space_size)	\
-	_REGISTER_XLAT_CONTEXT_FULL_SPEC(_ctx_name, (_mmap_count),	\
+	REGISTER_XLAT_CONTEXT_FULL_SPEC(_ctx_name, (_mmap_count),	\
 					 (_xlat_tables_count),		\
 					 (_virt_addr_space_size),	\
 					 (_phy_addr_space_size),	\
-					 IMAGE_XLAT_DEFAULT_REGIME,	\
-					"xlat_table")
+					 EL_REGIME_INVALID, "xlat_table")
 
 /*
  * Same as REGISTER_XLAT_CONTEXT plus the additional parameters:
@@ -182,7 +184,7 @@ typedef struct xlat_ctx xlat_ctx_t;
 #define REGISTER_XLAT_CONTEXT2(_ctx_name, _mmap_count, _xlat_tables_count, \
 			_virt_addr_space_size, _phy_addr_space_size,	\
 			_xlat_regime, _section_name)			\
-	_REGISTER_XLAT_CONTEXT_FULL_SPEC(_ctx_name, (_mmap_count),	\
+	REGISTER_XLAT_CONTEXT_FULL_SPEC(_ctx_name, (_mmap_count),	\
 					 (_xlat_tables_count),		\
 					 (_virt_addr_space_size),	\
 					 (_phy_addr_space_size),	\
@@ -295,14 +297,15 @@ int mmap_remove_dynamic_region_ctx(xlat_ctx_t *ctx,
  * translation tables are not modified by any other code while this function is
  * executing.
  */
-int change_mem_attributes(xlat_ctx_t *ctx, uintptr_t base_va, size_t size,
-			  uint32_t attr);
+int xlat_change_mem_attributes_ctx(const xlat_ctx_t *ctx, uintptr_t base_va,
+				   size_t size, uint32_t attr);
+int xlat_change_mem_attributes(uintptr_t base_va, size_t size, uint32_t attr);
 
 /*
  * Query the memory attributes of a memory page in a set of translation tables.
  *
  * Return 0 on success, a negative error code on error.
- * On success, the attributes are stored into *attributes.
+ * On success, the attributes are stored into *attr.
  *
  * ctx
  *   Translation context to work on.
@@ -310,11 +313,12 @@ int change_mem_attributes(xlat_ctx_t *ctx, uintptr_t base_va, size_t size,
  *   Virtual address of the page to get the attributes of.
  *   There are no alignment restrictions on this address. The attributes of the
  *   memory page it lies within are returned.
- * attributes
+ * attr
  *   Output parameter where to store the attributes of the targeted memory page.
  */
-int get_mem_attributes(const xlat_ctx_t *ctx, uintptr_t base_va,
-		       uint32_t *attributes);
+int xlat_get_mem_attributes_ctx(const xlat_ctx_t *ctx, uintptr_t base_va,
+				uint32_t *attr);
+int xlat_get_mem_attributes(uintptr_t base_va, uint32_t *attr);
 
 #endif /*__ASSEMBLY__*/
-#endif /* __XLAT_TABLES_V2_H__ */
+#endif /* XLAT_TABLES_V2_H */

@@ -27,6 +27,9 @@ include lib/libfdt/libfdt.mk
 
 # Enable new version of image loading on QEMU platforms
 LOAD_IMAGE_V2		:=	1
+ifneq ($(LOAD_IMAGE_V2),1)
+$(error Error: qemu needs LOAD_IMAGE_V2=1)
+endif
 
 ifeq ($(NEED_BL32),yes)
 $(eval $(call add_define,QEMU_LOAD_BL32))
@@ -133,12 +136,10 @@ BL2_SOURCES		+=	drivers/io/io_semihosting.c		\
 				plat/qemu/${ARCH}/plat_helpers.S	\
 				plat/qemu/qemu_bl2_setup.c		\
 				plat/qemu/dt.c				\
-				$(LIBFDT_SRCS)
-ifeq (${LOAD_IMAGE_V2},1)
-BL2_SOURCES		+=	plat/qemu/qemu_bl2_mem_params_desc.c	\
+				plat/qemu/qemu_bl2_mem_params_desc.c	\
 				plat/qemu/qemu_image_load.c		\
 				common/desc_image_load.c
-endif
+
 ifeq ($(add-lib-optee),yes)
 BL2_SOURCES		+=	lib/optee/optee_utils.c
 endif

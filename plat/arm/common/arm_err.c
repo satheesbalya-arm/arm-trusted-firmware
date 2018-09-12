@@ -5,18 +5,20 @@
  */
 
 #include <arch_helpers.h>
-#include <board_arm_def.h>
 #include <console.h>
 #include <debug.h>
 #include <errno.h>
 #include <norflash.h>
 #include <platform.h>
+#include <platform_def.h>
 #include <stdint.h>
+
+#pragma weak plat_arm_error_handler
 
 /*
  * ARM common implementation for error handler
  */
-void plat_error_handler(int err)
+void __dead2 plat_arm_error_handler(int err)
 {
 	int ret;
 
@@ -43,4 +45,9 @@ void plat_error_handler(int err)
 	/* Loop until the watchdog resets the system */
 	for (;;)
 		wfi();
+}
+
+void __dead2 plat_error_handler(int err)
+{
+	plat_arm_error_handler(err);
 }

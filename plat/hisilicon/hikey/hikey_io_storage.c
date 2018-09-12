@@ -7,7 +7,6 @@
 #include <arch_helpers.h>
 #include <assert.h>
 #include <debug.h>
-#include <emmc.h>
 #include <errno.h>
 #include <firmware_image_package.h>
 #include <io_block.h>
@@ -15,6 +14,7 @@
 #include <io_fip.h>
 #include <io_memmap.h>
 #include <io_storage.h>
+#include <mmc.h>
 #include <mmio.h>
 #include <platform_def.h>
 #include <semihosting.h>	/* For FOPEN_MODE_... */
@@ -59,10 +59,10 @@ static const io_block_dev_spec_t emmc_dev_spec = {
 	},
 #endif
 	.ops		= {
-		.read	= emmc_read_blocks,
-		.write	= emmc_write_blocks,
+		.read	= mmc_read_blocks,
+		.write	= mmc_write_blocks,
 	},
-	.block_size	= EMMC_BLOCK_SIZE,
+	.block_size	= MMC_BLOCK_SIZE,
 };
 
 static const io_uuid_spec_t bl31_uuid_spec = {
@@ -88,6 +88,44 @@ static const io_uuid_spec_t bl33_uuid_spec = {
 static const io_uuid_spec_t scp_bl2_uuid_spec = {
 	.uuid = UUID_SCP_FIRMWARE_SCP_BL2,
 };
+
+#if TRUSTED_BOARD_BOOT
+static const io_uuid_spec_t trusted_key_cert_uuid_spec = {
+	.uuid = UUID_TRUSTED_KEY_CERT,
+};
+
+static const io_uuid_spec_t scp_fw_key_cert_uuid_spec = {
+	.uuid = UUID_SCP_FW_KEY_CERT,
+};
+
+static const io_uuid_spec_t soc_fw_key_cert_uuid_spec = {
+	.uuid = UUID_SOC_FW_KEY_CERT,
+};
+
+static const io_uuid_spec_t tos_fw_key_cert_uuid_spec = {
+	.uuid = UUID_TRUSTED_OS_FW_KEY_CERT,
+};
+
+static const io_uuid_spec_t nt_fw_key_cert_uuid_spec = {
+	.uuid = UUID_NON_TRUSTED_FW_KEY_CERT,
+};
+
+static const io_uuid_spec_t scp_fw_cert_uuid_spec = {
+	.uuid = UUID_SCP_FW_CONTENT_CERT,
+};
+
+static const io_uuid_spec_t soc_fw_cert_uuid_spec = {
+	.uuid = UUID_SOC_FW_CONTENT_CERT,
+};
+
+static const io_uuid_spec_t tos_fw_cert_uuid_spec = {
+	.uuid = UUID_TRUSTED_OS_FW_CONTENT_CERT,
+};
+
+static const io_uuid_spec_t nt_fw_cert_uuid_spec = {
+	.uuid = UUID_NON_TRUSTED_FW_CONTENT_CERT,
+};
+#endif /* TRUSTED_BOARD_BOOT */
 
 static const struct plat_io_policy policies[] = {
 	[FIP_IMAGE_ID] = {
@@ -124,7 +162,54 @@ static const struct plat_io_policy policies[] = {
 		&fip_dev_handle,
 		(uintptr_t)&bl33_uuid_spec,
 		check_fip
-	}
+	},
+#if TRUSTED_BOARD_BOOT
+	[TRUSTED_KEY_CERT_ID] = {
+		&fip_dev_handle,
+		(uintptr_t)&trusted_key_cert_uuid_spec,
+		check_fip
+	},
+	[SCP_FW_KEY_CERT_ID] = {
+		&fip_dev_handle,
+		(uintptr_t)&scp_fw_key_cert_uuid_spec,
+		check_fip
+	},
+	[SOC_FW_KEY_CERT_ID] = {
+		&fip_dev_handle,
+		(uintptr_t)&soc_fw_key_cert_uuid_spec,
+		check_fip
+	},
+	[TRUSTED_OS_FW_KEY_CERT_ID] = {
+		&fip_dev_handle,
+		(uintptr_t)&tos_fw_key_cert_uuid_spec,
+		check_fip
+	},
+	[NON_TRUSTED_FW_KEY_CERT_ID] = {
+		&fip_dev_handle,
+		(uintptr_t)&nt_fw_key_cert_uuid_spec,
+		check_fip
+	},
+	[SCP_FW_CONTENT_CERT_ID] = {
+		&fip_dev_handle,
+		(uintptr_t)&scp_fw_cert_uuid_spec,
+		check_fip
+	},
+	[SOC_FW_CONTENT_CERT_ID] = {
+		&fip_dev_handle,
+		(uintptr_t)&soc_fw_cert_uuid_spec,
+		check_fip
+	},
+	[TRUSTED_OS_FW_CONTENT_CERT_ID] = {
+		&fip_dev_handle,
+		(uintptr_t)&tos_fw_cert_uuid_spec,
+		check_fip
+	},
+	[NON_TRUSTED_FW_CONTENT_CERT_ID] = {
+		&fip_dev_handle,
+		(uintptr_t)&nt_fw_cert_uuid_spec,
+		check_fip
+	},
+#endif /* TRUSTED_BOARD_BOOT */
 };
 
 static int check_emmc(const uintptr_t spec)

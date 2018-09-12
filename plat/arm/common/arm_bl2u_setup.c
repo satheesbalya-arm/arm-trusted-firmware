@@ -6,6 +6,7 @@
 
 #include <arch_helpers.h>
 #include <arm_def.h>
+#include <assert.h>
 #include <bl_common.h>
 #include <generic_delay_timer.h>
 #include <plat_arm.h>
@@ -17,6 +18,11 @@
 #pragma weak bl2u_platform_setup
 #pragma weak bl2u_early_platform_setup
 #pragma weak bl2u_plat_arch_setup
+
+#define MAP_BL2U_TOTAL		MAP_REGION_FLAT(			\
+					BL2U_BASE,			\
+					BL2U_LIMIT - BL2U_BASE,		\
+					MT_MEMORY | MT_RW | MT_SECURE)
 
 /*
  * Perform ARM standard platform setup for BL2U
@@ -32,7 +38,7 @@ void bl2u_platform_setup(void)
 	arm_bl2u_platform_setup();
 }
 
-void arm_bl2u_early_platform_setup(meminfo_t *mem_layout, void *plat_info)
+void arm_bl2u_early_platform_setup(struct meminfo *mem_layout, void *plat_info)
 {
 	/* Initialize the console to provide early debug support */
 	arm_console_boot_init();
@@ -46,7 +52,7 @@ void arm_bl2u_early_platform_setup(meminfo_t *mem_layout, void *plat_info)
  * In case of ARM FVP platforms x1 is not used.
  * In both cases, x0 contains the extents of the memory available to BL2U
  ******************************************************************************/
-void bl2u_early_platform_setup(meminfo_t *mem_layout, void *plat_info)
+void bl2u_early_platform_setup(struct meminfo *mem_layout, void *plat_info)
 {
 	arm_bl2u_early_platform_setup(mem_layout, plat_info);
 }
@@ -58,23 +64,30 @@ void bl2u_early_platform_setup(meminfo_t *mem_layout, void *plat_info)
  ******************************************************************************/
 void arm_bl2u_plat_arch_setup(void)
 {
-	arm_setup_page_tables(BL2U_BASE,
-			      BL31_LIMIT,
-			      BL_CODE_BASE,
-			      BL_CODE_END,
-			      BL_RO_DATA_BASE,
-			      BL_RO_DATA_END
+
 #if USE_COHERENT_MEM
-			      ,
-			      BL_COHERENT_RAM_BASE,
-			      BL_COHERENT_RAM_END
+	/* Ensure ARM platforms dont use coherent memory in BL2U */
+	assert((BL_COHERENT_RAM_END - BL_COHERENT_RAM_BASE) == 0U);
 #endif
-		);
+
+	const mmap_region_t bl_regions[] = {
+		MAP_BL2U_TOTAL,
+		ARM_MAP_BL_RO,
+#if USE_ROMLIB
+		ARM_MAP_ROMLIB_CODE,
+		ARM_MAP_ROMLIB_DATA,
+#endif
+		{0}
+	};
+
+	arm_setup_page_tables(bl_regions, plat_arm_get_mmap());
+
 #ifdef AARCH32
-	enable_mmu_secure(0);
+	enable_mmu_svc_mon(0);
 #else
 	enable_mmu_el1(0);
 #endif
+	arm_setup_romlib();
 }
 
 void bl2u_plat_arch_setup(void)

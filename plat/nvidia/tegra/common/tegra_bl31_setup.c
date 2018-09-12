@@ -28,6 +28,7 @@
 /* length of Trusty's input parameters (in bytes) */
 #define TRUSTY_PARAMS_LEN_BYTES	(4096*2)
 
+extern void memcpy16(void *dest, const void *src, unsigned int length);
 extern void zeromem16(void *mem, unsigned int length);
 
 /*******************************************************************************
@@ -116,9 +117,6 @@ void bl31_early_platform_setup(bl31_params_t *from_bl2,
 {
 	plat_params_from_bl2_t *plat_params =
 		(plat_params_from_bl2_t *)plat_params_from_bl2;
-#if LOG_LEVEL >= LOG_LEVEL_INFO
-	int impl = (read_midr() >> MIDR_IMPL_SHIFT) & MIDR_IMPL_MASK;
-#endif
 	image_info_t bl32_img_info = { {0} };
 	uint64_t tzdram_start, tzdram_end, bl32_start, bl32_end;
 
@@ -227,8 +225,9 @@ void bl31_early_platform_setup(bl31_params_t *from_bl2,
 	/* Early platform setup for Tegra SoCs */
 	plat_early_platform_setup();
 
-	INFO("BL3-1: Boot CPU: %s Processor [%lx]\n", (impl == DENVER_IMPL) ?
-		"Denver" : "ARM", read_mpidr());
+	INFO("BL3-1: Boot CPU: %s Processor [%lx]\n",
+	     (((read_midr() >> MIDR_IMPL_SHIFT) & MIDR_IMPL_MASK)
+	      == DENVER_IMPL) ? "Denver" : "ARM", read_mpidr());
 }
 
 #ifdef SPD_trusty

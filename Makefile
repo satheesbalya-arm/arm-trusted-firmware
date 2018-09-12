@@ -45,7 +45,7 @@ CHECKCODE_ARGS		:=	--no-patch
 # Do not check the coding style on imported library files or documentation files
 INC_LIB_DIRS_TO_CHECK	:=	$(sort $(filter-out			\
 					include/lib/libfdt		\
-					include/lib/stdlib,		\
+					include/lib/libc,		\
 					$(wildcard include/lib/*)))
 INC_DIRS_TO_CHECK	:=	$(sort $(filter-out			\
 					include/lib,			\
@@ -53,7 +53,7 @@ INC_DIRS_TO_CHECK	:=	$(sort $(filter-out			\
 LIB_DIRS_TO_CHECK	:=	$(sort $(filter-out			\
 					lib/compiler-rt			\
 					lib/libfdt%			\
-					lib/stdlib,			\
+					lib/libc,			\
 					$(wildcard lib/*)))
 ROOT_DIRS_TO_CHECK	:=	$(sort $(filter-out			\
 					lib				\
@@ -85,13 +85,26 @@ $(eval $(call add_define,DEBUG))
 ifneq (${DEBUG}, 0)
         BUILD_TYPE	:=	debug
         TF_CFLAGS	+= 	-g
-        ASFLAGS		+= 	-g -Wa,--gdwarf-2
+
+        ifneq ($(findstring clang,$(notdir $(CC))),)
+             ASFLAGS		+= 	-g
+        else
+             ASFLAGS		+= 	-g -Wa,--gdwarf-2
+        endif
+
         # Use LOG_LEVEL_INFO by default for debug builds
         LOG_LEVEL	:=	40
 else
         BUILD_TYPE	:=	release
         # Use LOG_LEVEL_NOTICE by default for release builds
         LOG_LEVEL	:=	20
+endif
+
+# Enable backtrace by default in DEBUG AArch64 builds
+ifeq (${ARCH},aarch32)
+        ENABLE_BACKTRACE 	:=	0
+else
+        ENABLE_BACKTRACE 	:=	${DEBUG}
 endif
 
 # Default build string (git branch and commit)
@@ -119,7 +132,7 @@ CC			:=	${CROSS_COMPILE}gcc
 CPP			:=	${CROSS_COMPILE}cpp
 AS			:=	${CROSS_COMPILE}gcc
 AR			:=	${CROSS_COMPILE}ar
-LD			:=	${CROSS_COMPILE}ld
+LINKER			:=	${CROSS_COMPILE}ld
 OC			:=	${CROSS_COMPILE}objcopy
 OD			:=	${CROSS_COMPILE}objdump
 NM			:=	${CROSS_COMPILE}nm
@@ -128,8 +141,8 @@ DTC			:=	dtc
 
 # Use ${LD}.bfd instead if it exists (as absolute path or together with $PATH).
 ifneq ($(strip $(wildcard ${LD}.bfd) \
-	$(foreach dir,$(subst :, ,${PATH}),$(wildcard ${dir}/${LD}.bfd))),)
-LD			:=	${LD}.bfd
+	$(foreach dir,$(subst :, ,${PATH}),$(wildcard ${dir}/${LINKER}.bfd))),)
+LINKER			:=	${LINKER}.bfd
 endif
 
 ifeq (${ARM_ARCH_MAJOR},7)
@@ -143,12 +156,29 @@ endif
 ifeq ($(notdir $(CC)),armclang)
 TF_CFLAGS_aarch32	=	-target arm-arm-none-eabi $(march32-directive)
 TF_CFLAGS_aarch64	=	-target aarch64-arm-none-eabi -march=armv8-a
+LD			=	$(LINKER)
+AS			=	$(CC) -c -x assembler-with-cpp $(TF_CFLAGS_$(ARCH))
+CPP			=	$(CC) -E $(TF_CFLAGS_$(ARCH))
+PP			=	$(CC) -E $(TF_CFLAGS_$(ARCH))
 else ifneq ($(findstring clang,$(notdir $(CC))),)
 TF_CFLAGS_aarch32	=	$(target32-directive)
 TF_CFLAGS_aarch64	=	-target aarch64-elf
+LD			=	$(LINKER)
+AS			=	$(CC) -c -x assembler-with-cpp $(TF_CFLAGS_$(ARCH))
+CPP			=	$(CC) -E
+PP			=	$(CC) -E
 else
 TF_CFLAGS_aarch32	=	$(march32-directive)
 TF_CFLAGS_aarch64	=	-march=armv8-a
+LD			=	$(LINKER)
+endif
+
+ifeq (${AARCH32_INSTRUCTION_SET},A32)
+TF_CFLAGS_aarch32	+=	-marm
+else ifeq (${AARCH32_INSTRUCTION_SET},T32)
+TF_CFLAGS_aarch32	+=	-mthumb
+else
+$(error Error: Unknown AArch32 instruction set ${AARCH32_INSTRUCTION_SET})
 endif
 
 TF_CFLAGS_aarch32	+=	-mno-unaligned-access
@@ -157,7 +187,7 @@ TF_CFLAGS_aarch64	+=	-mgeneral-regs-only -mstrict-align
 ASFLAGS_aarch32		=	$(march32-directive)
 ASFLAGS_aarch64		=	-march=armv8-a
 
-CPPFLAGS		=	${DEFINES} ${INCLUDES} -nostdinc		\
+CPPFLAGS		=	${DEFINES} ${INCLUDES} ${MBEDTLS_INC} -nostdinc		\
 				-Wmissing-include-dirs -Werror
 ASFLAGS			+=	$(CPPFLAGS) $(ASFLAGS_$(ARCH))			\
 				-D__ASSEMBLY__ -ffreestanding 			\
@@ -173,6 +203,11 @@ ifneq ($(PIE_FOUND),)
 TF_CFLAGS		+=	-fno-PIE
 endif
 
+# Force the compiler to include the frame pointer
+ifeq (${ENABLE_BACKTRACE},1)
+TF_CFLAGS		+=	-fno-omit-frame-pointer
+endif
+
 TF_LDFLAGS		+=	--fatal-warnings -O1
 TF_LDFLAGS		+=	--gc-sections
 TF_LDFLAGS		+=	$(TF_LDFLAGS_$(ARCH))
@@ -183,12 +218,10 @@ DTC_FLAGS		+=	-I dts -O dtb
 # Common sources and include directories
 ################################################################################
 include lib/compiler-rt/compiler-rt.mk
-include lib/stdlib/stdlib.mk
+include lib/libc/libc.mk
 
 BL_COMMON_SOURCES	+=	common/bl_common.c			\
 				common/tf_log.c				\
-				common/tf_printf.c			\
-				common/tf_snprintf.c			\
 				common/${ARCH}/debug.S			\
 				lib/${ARCH}/cache_helpers.S		\
 				lib/${ARCH}/misc_helpers.S		\
@@ -196,8 +229,15 @@ BL_COMMON_SOURCES	+=	common/bl_common.c			\
 				plat/common/plat_log_common.c		\
 				plat/common/${ARCH}/plat_common.c	\
 				plat/common/${ARCH}/platform_helpers.S	\
-				${COMPILER_RT_SRCS}			\
-				${STDLIB_SRCS}
+				${COMPILER_RT_SRCS}
+
+ifeq ($(notdir $(CC)),armclang)
+BL_COMMON_SOURCES	+=	lib/${ARCH}/armclang_printf.S
+endif
+
+ifeq (${ENABLE_BACKTRACE},1)
+BL_COMMON_SOURCES	+=	common/backtrace.c
+endif
 
 INCLUDES		+=	-Iinclude				\
 				-Iinclude/bl1				\
@@ -226,7 +266,6 @@ INCLUDES		+=	-Iinclude				\
 				${PLAT_INCLUDES}			\
 				${SPD_INCLUDES}				\
 				-Iinclude/tools_share
-
 
 ################################################################################
 # Generic definitions
@@ -329,6 +368,15 @@ endif
 ################################################################################
 # Check incompatible options
 ################################################################################
+
+ifeq (${ARCH},aarch32)
+        ifeq (${ENABLE_BACKTRACE},1)
+                ifneq (${AARCH32_INSTRUCTION_SET},A32)
+                        $(error Error: AARCH32_INSTRUCTION_SET=A32 is needed \
+                        for ENABLE_BACKTRACE when compiling for AArch32.)
+                endif
+        endif
+endif
 
 ifdef EL3_PAYLOAD_BASE
         ifdef PRELOADED_BL33_BASE
@@ -491,6 +539,9 @@ CRTTOOL			?=	${CRTTOOLPATH}/cert_create${BIN_EXT}
 FIPTOOLPATH		?=	tools/fiptool
 FIPTOOL			?=	${FIPTOOLPATH}/fiptool${BIN_EXT}
 
+# Variables for use with ROMLIB
+ROMLIBPATH		?=	lib/romlib
+
 ################################################################################
 # Include BL specific makefiles
 ################################################################################
@@ -533,6 +584,8 @@ $(eval $(call assert_boolean,DYN_DISABLE_AUTH))
 $(eval $(call assert_boolean,EL3_EXCEPTION_HANDLING))
 $(eval $(call assert_boolean,ENABLE_AMU))
 $(eval $(call assert_boolean,ENABLE_ASSERTIONS))
+$(eval $(call assert_boolean,ENABLE_BACKTRACE))
+$(eval $(call assert_boolean,ENABLE_MPAM_FOR_LOWER_ELS))
 $(eval $(call assert_boolean,ENABLE_PLAT_COMPAT))
 $(eval $(call assert_boolean,ENABLE_PMF))
 $(eval $(call assert_boolean,ENABLE_PSCI_STAT))
@@ -559,6 +612,7 @@ $(eval $(call assert_boolean,SEPARATE_CODE_AND_RODATA))
 $(eval $(call assert_boolean,SPIN_ON_BL1_EXIT))
 $(eval $(call assert_boolean,TRUSTED_BOARD_BOOT))
 $(eval $(call assert_boolean,USE_COHERENT_MEM))
+$(eval $(call assert_boolean,USE_ROMLIB))
 $(eval $(call assert_boolean,USE_TBBR_DEFS))
 $(eval $(call assert_boolean,WARMBOOT_ENABLE_DCACHE_EARLY))
 $(eval $(call assert_boolean,BL2_AT_EL3))
@@ -583,6 +637,8 @@ $(eval $(call add_define,CTX_INCLUDE_FPREGS))
 $(eval $(call add_define,EL3_EXCEPTION_HANDLING))
 $(eval $(call add_define,ENABLE_AMU))
 $(eval $(call add_define,ENABLE_ASSERTIONS))
+$(eval $(call add_define,ENABLE_BACKTRACE))
+$(eval $(call add_define,ENABLE_MPAM_FOR_LOWER_ELS))
 $(eval $(call add_define,ENABLE_PLAT_COMPAT))
 $(eval $(call add_define,ENABLE_PMF))
 $(eval $(call add_define,ENABLE_PSCI_STAT))
@@ -611,6 +667,7 @@ $(eval $(call add_define,SPD_${SPD}))
 $(eval $(call add_define,SPIN_ON_BL1_EXIT))
 $(eval $(call add_define,TRUSTED_BOARD_BOOT))
 $(eval $(call add_define,USE_COHERENT_MEM))
+$(eval $(call add_define,USE_ROMLIB))
 $(eval $(call add_define,USE_TBBR_DEFS))
 $(eval $(call add_define,WARMBOOT_ENABLE_DCACHE_EARLY))
 $(eval $(call add_define,BL2_AT_EL3))
@@ -654,6 +711,9 @@ msg_start:
 ifeq (${ERROR_DEPRECATED},0)
     CPPFLAGS		+= 	-Wno-error=deprecated-declarations -Wno-error=cpp
 endif
+
+$(eval $(call MAKE_LIB_DIRS))
+$(eval $(call MAKE_LIB,c))
 
 # Expand build macros for the different images
 ifeq (${NEED_BL1},yes)
@@ -719,6 +779,7 @@ clean:
 	$(call SHELL_REMOVE_DIR,${BUILD_PLAT})
 	${Q}${MAKE} --no-print-directory -C ${FIPTOOLPATH} clean
 	${Q}${MAKE} PLAT=${PLAT} --no-print-directory -C ${CRTTOOLPATH} clean
+	${Q}${MAKE} --no-print-directory -C ${ROMLIBPATH} clean
 
 realclean distclean:
 	@echo "  REALCLEAN"
@@ -726,11 +787,12 @@ realclean distclean:
 	$(call SHELL_DELETE_ALL, ${CURDIR}/cscope.*)
 	${Q}${MAKE} --no-print-directory -C ${FIPTOOLPATH} clean
 	${Q}${MAKE} PLAT=${PLAT} --no-print-directory -C ${CRTTOOLPATH} clean
+	${Q}${MAKE} --no-print-directory -C ${ROMLIBPATH} clean
 
 checkcodebase:		locate-checkpatch
 	@echo "  CHECKING STYLE"
 	@if test -d .git ; then						\
-		git ls-files | grep -E -v 'libfdt|stdlib|docs|\.md' |	\
+		git ls-files | grep -E -v 'libfdt|libc|docs|\.md' |	\
 		while read GIT_FILE ;					\
 		do ${CHECKPATCH} ${CHECKCODE_ARGS} -f $$GIT_FILE ;	\
 		done ;							\
@@ -738,7 +800,7 @@ checkcodebase:		locate-checkpatch
 		 find . -type f -not -iwholename "*.git*"		\
 		 -not -iwholename "*build*"				\
 		 -not -iwholename "*libfdt*"				\
-		 -not -iwholename "*stdlib*"				\
+		 -not -iwholename "*libc*"				\
 		 -not -iwholename "*docs*"				\
 		 -not -iwholename "*.md"				\
 		 -exec ${CHECKPATCH} ${CHECKCODE_ARGS} -f {} \; ;	\
@@ -803,6 +865,10 @@ fwu_fip: ${BUILD_PLAT}/${FWU_FIP_NAME}
 .PHONY: ${FIPTOOL}
 ${FIPTOOL}:
 	${Q}${MAKE} CPPFLAGS="-DVERSION='\"${VERSION_STRING}\"'" --no-print-directory -C ${FIPTOOLPATH}
+
+.PHONY: libraries
+romlib.bin: libraries
+	${Q}${MAKE} BUILD_PLAT=${BUILD_PLAT} INCLUDES='${INCLUDES}' DEFINES='${DEFINES}' --no-print-directory -C ${ROMLIBPATH} all
 
 cscope:
 	@echo "  CSCOPE"

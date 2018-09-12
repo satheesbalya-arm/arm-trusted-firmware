@@ -28,7 +28,7 @@
 #  define PLATFORM_STACK_SIZE 0x400
 # endif
 #elif defined(IMAGE_BL2U)
-# define PLATFORM_STACK_SIZE 0x200
+# define PLATFORM_STACK_SIZE 0x400
 #elif defined(IMAGE_BL31)
 #if ENABLE_SPM
 # define PLATFORM_STACK_SIZE 0x500
@@ -71,9 +71,12 @@
 #elif defined(IMAGE_BL32)
 # define PLAT_ARM_MMAP_ENTRIES		8
 # define MAX_XLAT_TABLES		5
-#else
+#elif !USE_ROMLIB
 # define PLAT_ARM_MMAP_ENTRIES		11
 # define MAX_XLAT_TABLES		5
+#else
+# define PLAT_ARM_MMAP_ENTRIES		12
+# define MAX_XLAT_TABLES		6
 #endif
 
 /*
@@ -83,11 +86,23 @@
 #define PLAT_ARM_MAX_BL1_RW_SIZE	0xB000
 
 /*
+ * PLAT_ARM_MAX_ROMLIB_RW_SIZE is define to use a full page
+ */
+
+#if USE_ROMLIB
+#define PLAT_ARM_MAX_ROMLIB_RW_SIZE	0x1000
+#define PLAT_ARM_MAX_ROMLIB_RO_SIZE	0xe000
+#else
+#define PLAT_ARM_MAX_ROMLIB_RW_SIZE	0
+#define PLAT_ARM_MAX_ROMLIB_RO_SIZE	0
+#endif
+
+/*
  * PLAT_ARM_MAX_BL2_SIZE is calculated using the current BL2 debug size plus a
  * little space for growth.
  */
 #if TRUSTED_BOARD_BOOT
-# define PLAT_ARM_MAX_BL2_SIZE		0x1F000
+# define PLAT_ARM_MAX_BL2_SIZE		0x1D000
 #else
 # define PLAT_ARM_MAX_BL2_SIZE		0x11000
 #endif

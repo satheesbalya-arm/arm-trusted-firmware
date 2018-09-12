@@ -24,23 +24,31 @@ Allwinner ARMv8 platform port
 :G: `smaeul`_
 :F: docs/plat/allwinner.rst
 :F: plat/allwinner/
+:F: drivers/allwinner/
 
 Armv7-A architecture port
 -------------------------
 :M: Etienne Carriere <etienne.carriere@linaro.org>
 :G: `etienne-lms`_
 
+Arm System Guidance for Infrastructure / Mobile FVP platforms
+-------------------------------------------------------------
+:M: Nariman Poushin <nariman.poushin@linaro.org>
+:G: `nariman`_
+:F: plat/arm/css/sgi/
+:F: plat/arm/css/sgm/
+:F: plat/arm/board/sgi575/
+:F: plat/arm/board/sgm775/
+
 eMMC/UFS drivers
 ----------------
 :M: Haojian Zhuang <haojian.zhuang@linaro.org>
 :G: `hzhuang1`_
-:F: drivers/emmc/
 :F: drivers/partition/
 :F: drivers/synopsys/emmc/
 :F: drivers/synopsys/ufs/
 :F: drivers/ufs/
 :F: include/drivers/dw_ufs.h
-:F: include/drivers/emmc.h
 :F: include/drivers/ufs.h
 :F: include/drivers/synopsys/dw_mmc.h
 
@@ -66,6 +74,14 @@ MediaTek platform ports
 :G: `mtk09422`_
 :F: plat/mediatek/
 
+Marvell platform ports and SoC drivers
+--------------------------------------
+:M: Konstantin Porotchkin <kostap@marvell.com>
+:G: `kostapr`_
+:F: docs/plat/marvell/
+:F: plat/marvell/
+:F: drivers/marvell/
+
 NVidia platform ports
 ---------------------
 :M: Varun Wadekar <vwadekar@nvidia.com>
@@ -81,6 +97,19 @@ NXP QorIQ Layerscape platform ports
 :G: `qoriq-open-source`_
 :F: docs/plat/ls1043a.rst
 :F: plat/layerscape/
+
+NXP i.MX 7 WaRP7 platform port and SoC drivers
+----------------------------------------------
+:M: Bryan O'Donoghue <bryan.odonoghue@linaro.org>
+:G: `bryanodonoghue`_
+:M: Jun Nie <jun.nie@linaro.org>
+:G: `niej`_
+:F: docs/plat/warp7.rst
+:F: plat/imx/common/
+:F: plat/imx/imx7/
+:F: drivers/imx/timer/
+:F: drivers/imx/uart/
+:F: drivers/imx/usdhc/
 
 NXP i.MX 8 platform port
 ------------------------
@@ -116,6 +145,18 @@ RockChip platform port
 :G: `TonyXie06`_
 :G: `rockchip-linux`_
 :F: plat/rockchip/
+
+STM32MP1 platform port
+----------------------
+:M: Yann Gautier <yann.gautier@st.com>
+:G: `Yann-lms`_
+:F: docs/plat/stm32mp1.rst
+:F: drivers/st/
+:F: fdts/stm32\*
+:F: include/drivers/st/
+:F: include/dt-bindings/\*/stm32\*
+:F: plat/st/
+:F: tools/stm32image/
 
 Synquacer platform port
 -----------------------
@@ -158,6 +199,7 @@ Xilinx platform port
 .. _Andre-ARM: https://github.com/Andre-ARM
 .. _Anson-Huang: https://github.com/Anson-Huang
 .. _antonio-nino-diaz-arm: https://github.com/antonio-nino-diaz-arm
+.. _bryanodonoghue: https://github.com/bryanodonoghue
 .. _b49020: https://github.com/b49020
 .. _danh-arm: https://github.com/danh-arm
 .. _dp-arm: https://github.com/dp-arm
@@ -165,8 +207,11 @@ Xilinx platform port
 .. _glneo: https://github.com/glneo
 .. _hzhuang1: https://github.com/hzhuang1
 .. _jenswi-linaro: https://github.com/jenswi-linaro
+.. _niej: https://github.com/niej
+.. _kostapr: https://github.com/kostapr
 .. _masahir0y: https://github.com/masahir0y
 .. _mtk09422: https://github.com/mtk09422
+.. _nariman: https://github.com/npoushin
 .. _qoriq-open-source: https://github.com/qoriq-open-source
 .. _rockchip-linux: https://github.com/rockchip-linux
 .. _shawnguo2: https://github.com/shawnguo2
@@ -175,3 +220,4 @@ Xilinx platform port
 .. _soby-mathew: https://github.com/soby-mathew
 .. _TonyXie06: https://github.com/TonyXie06
 .. _vwadekar: https://github.com/vwadekar
+.. _Yann-lms: https://github.com/Yann-lms

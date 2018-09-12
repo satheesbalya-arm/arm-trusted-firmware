@@ -10,7 +10,7 @@
 #include <arch.h>	/* for additional register definitions */
 #include <cdefs.h>	/* For __dead2 */
 #include <stdint.h>
-#include <sys/types.h>
+#include <string.h>
 
 /**********************************************************************
  * Macros which create inline functions to read or write CPU system
@@ -155,7 +155,9 @@ DEFINE_SYSOP_TYPE_PARAM_FUNC(at, s12e1r)
 DEFINE_SYSOP_TYPE_PARAM_FUNC(at, s12e1w)
 DEFINE_SYSOP_TYPE_PARAM_FUNC(at, s12e0r)
 DEFINE_SYSOP_TYPE_PARAM_FUNC(at, s12e0w)
+DEFINE_SYSOP_TYPE_PARAM_FUNC(at, s1e1r)
 DEFINE_SYSOP_TYPE_PARAM_FUNC(at, s1e2r)
+DEFINE_SYSOP_TYPE_PARAM_FUNC(at, s1e3r)
 
 void flush_dcache_range(uintptr_t addr, size_t size);
 void clean_dcache_range(uintptr_t addr, size_t size);
@@ -328,6 +330,11 @@ DEFINE_RENAME_SYSREG_RW_FUNCS(amcntenset0_el0, AMCNTENSET0_EL0)
 DEFINE_RENAME_SYSREG_RW_FUNCS(amcntenclr1_el0, AMCNTENCLR1_EL0)
 DEFINE_RENAME_SYSREG_RW_FUNCS(amcntenset1_el0, AMCNTENSET1_EL0)
 
+DEFINE_RENAME_SYSREG_READ_FUNC(mpamidr_el1, MPAMIDR_EL1)
+DEFINE_RENAME_SYSREG_RW_FUNCS(mpam3_el3, MPAM3_EL3)
+DEFINE_RENAME_SYSREG_RW_FUNCS(mpam2_el2, MPAM2_EL2)
+DEFINE_RENAME_SYSREG_RW_FUNCS(mpamhcr_el2, MPAMHCR_EL2)
+
 DEFINE_RENAME_SYSREG_RW_FUNCS(pmblimitr_el1, PMBLIMITR_EL1)
 
 DEFINE_RENAME_SYSREG_WRITE_FUNC(zcr_el3, ZCR_EL3)
@@ -348,6 +355,12 @@ DEFINE_RENAME_SYSREG_READ_FUNC(erxmisc1_el1, ERXMISC1_EL1)
 
 #define IS_IN_EL1() IS_IN_EL(1)
 #define IS_IN_EL3() IS_IN_EL(3)
+#define IS_IN_EL3() IS_IN_EL(3)
+
+static inline unsigned int get_current_el(void)
+{
+	return GET_EL(read_CurrentEl());
+}
 
 /*
  * Check if an EL is implemented from AA64PFR0 register fields. 'el' argument

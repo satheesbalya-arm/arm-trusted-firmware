@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2018, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -70,16 +70,16 @@
 #define PLAT_RPI3_FIP_BASE		ULL(0x00020000)
 #define PLAT_RPI3_FIP_MAX_SIZE		ULL(0x001E0000)
 
-/* We have 16M of memory reserved at at 256M */
+/* We have 16M of memory reserved starting at 256M */
 #define SEC_SRAM_BASE			ULL(0x10000000)
 #define SEC_SRAM_SIZE			ULL(0x00100000)
 
 #define SEC_DRAM0_BASE			ULL(0x10100000)
-#define SEC_DRAM0_SIZE			ULL(0x00200000)
-
-#define NS_DRAM0_BASE			ULL(0x10300000)
-#define NS_DRAM0_SIZE			ULL(0x00D00000)
+#define SEC_DRAM0_SIZE			ULL(0x00F00000)
 /* End of reserved memory */
+
+#define NS_DRAM0_BASE			ULL(0x11000000)
+#define NS_DRAM0_SIZE			ULL(0x01000000)
 
 /*
  * BL33 entrypoint.
@@ -117,9 +117,11 @@
  */
 #define PLAT_RPI3_TRUSTED_MAILBOX_BASE	SHARED_RAM_BASE
 
+/* The secure entry point to be used on warm reset by all CPUs. */
 #define PLAT_RPI3_TM_ENTRYPOINT		PLAT_RPI3_TRUSTED_MAILBOX_BASE
 #define PLAT_RPI3_TM_ENTRYPOINT_SIZE	ULL(8)
 
+/* Hold entries for each CPU. */
 #define PLAT_RPI3_TM_HOLD_BASE		(PLAT_RPI3_TM_ENTRYPOINT + \
 					 PLAT_RPI3_TM_ENTRYPOINT_SIZE)
 #define PLAT_RPI3_TM_HOLD_ENTRY_SIZE	ULL(8)
@@ -213,10 +215,11 @@
 /*
  * Other memory-related defines.
  */
-#define ADDR_SPACE_SIZE			(ULL(1) << 32)
+#define PLAT_PHY_ADDR_SPACE_SIZE	(ULL(1) << 32)
+#define PLAT_VIRT_ADDR_SPACE_SIZE	(ULL(1) << 32)
 
-#define MAX_MMAP_REGIONS		U(8)
-#define MAX_XLAT_TABLES			U(4)
+#define MAX_MMAP_REGIONS		8
+#define MAX_XLAT_TABLES			4
 
 #define MAX_IO_DEVICES			U(3)
 #define MAX_IO_HANDLES			U(4)

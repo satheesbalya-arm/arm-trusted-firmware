@@ -4,42 +4,35 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef __RAS_H__
-#define __RAS_H__
-
-#include <arch.h>
-#include <arch_helpers.h>
-#include <assert.h>
-#include <context.h>
-#include <mmio.h>
-#include <stdint.h>
+#ifndef RAS_ARCH_H
+#define RAS_ARCH_H
 
 /*
  * Size of nodes implementing Standard Error Records - currently only 4k is
  * supported.
  */
-#define STD_ERR_NODE_SIZE_NUM_K		4
+#define STD_ERR_NODE_SIZE_NUM_K		4U
 
 /*
  * Individual register offsets within an error record in Standard Error Record
  * format when error records are accessed through memory-mapped registers.
  */
-#define ERR_FR(n)	(0x0 + (64 * (n)))
-#define ERR_CTLR(n)	(0x8 + (64 * (n)))
-#define ERR_STATUS(n)	(0x10 + (64 * (n)))
-#define ERR_ADDR(n)	(0x18 + (64 * (n)))
-#define ERR_MISC0(n)	(0x20 + (64 * (n)))
-#define ERR_MISC1(n)	(0x28 + (64 * (n)))
+#define ERR_FR(n)	(0x0ULL + (64ULL * (n)))
+#define ERR_CTLR(n)	(0x8ULL + (64ULL * (n)))
+#define ERR_STATUS(n)	(0x10ULL + (64ULL * (n)))
+#define ERR_ADDR(n)	(0x18ULL + (64ULL * (n)))
+#define ERR_MISC0(n)	(0x20ULL + (64ULL * (n)))
+#define ERR_MISC1(n)	(0x28ULL + (64ULL * (n)))
 
 /* Group Status Register (ERR_STATUS) offset */
 #define ERR_GSR(base, size_num_k, n) \
-	((base) + (0x380 * (size_num_k)) + (8 * (n)))
+	((base) + (0x380ULL * (size_num_k)) + (8ULL * (n)))
 
 /* Management register offsets */
 #define ERR_DEVID(base, size_num_k) \
-	((base) + ((0x400 * (size_num_k)) - 0x100) + 0xc8)
+	((base) + ((0x400ULL * (size_num_k)) - 0x100ULL) + 0xc8ULL)
 
-#define ERR_DEVID_MASK	0xffff
+#define ERR_DEVID_MASK	0xffffUL
 
 /* Standard Error Record status register fields */
 #define ERR_STATUS_AV_SHIFT	31
@@ -146,12 +139,53 @@
 #define ERR_CTLR_ENABLE_FIELD(_ctlr, _field) \
 	ERR_CTLR_SET_FIELD(_ctlr, _field, ERR_CTLR_ ##_field ##_MASK)
 
-/* Uncorrected error types */
+/* Uncorrected error types for Asynchronous exceptions */
 #define ERROR_STATUS_UET_UC	0x0	/* Uncontainable */
 #define ERROR_STATUS_UET_UEU	0x1	/* Unrecoverable */
 #define ERROR_STATUS_UET_UEO	0x2	/* Restable */
 #define ERROR_STATUS_UET_UER	0x3	/* Recoverable */
 
+/* Error types for Synchronous exceptions */
+#define ERROR_STATUS_SET_UER	0x0	/* Recoverable */
+#define ERROR_STATUS_SET_UEO	0x1	/* Restable */
+#define ERROR_STATUS_SET_UC	0x2     /* Uncontainable */
+#define ERROR_STATUS_SET_CE	0x3     /* Corrected */
+
+/* Implementation Defined Syndrome bit in ESR */
+#define SERROR_IDS_BIT		U(24)
+
+/*
+ * Asynchronous Error Type in exception syndrome. The field has same values in
+ * both DISR_EL1 and ESR_EL3 for SError.
+ */
+#define EABORT_AET_SHIFT	U(10)
+#define EABORT_AET_WIDTH	U(3)
+#define EABORT_AET_MASK		U(0x7)
+
+/* DFSC field in Asynchronous exception syndrome */
+#define EABORT_DFSC_SHIFT	U(0)
+#define EABORT_DFSC_WIDTH	U(6)
+#define EABORT_DFSC_MASK	U(0x3f)
+
+/* Synchronous Error Type in exception syndrome. */
+#define EABORT_SET_SHIFT	U(11)
+#define EABORT_SET_WIDTH	U(2)
+#define EABORT_SET_MASK		U(0x3)
+
+/* DFSC code for SErrors */
+#define DFSC_SERROR		0x11
+
+/* I/DFSC code for synchronous external abort */
+#define SYNC_EA_FSC		0x10
+
+#ifndef __ASSEMBLY__
+
+#include <arch.h>
+#include <arch_helpers.h>
+#include <assert.h>
+#include <context.h>
+#include <mmio.h>
+#include <stdint.h>
 
 /*
  * Standard Error Record accessors for memory-mapped registers.
@@ -210,7 +244,8 @@ static inline uint64_t ser_get_misc1(uintptr_t base, unsigned int idx)
  */
 static inline void ser_sys_select_record(unsigned int idx)
 {
-	unsigned int max_idx __unused = read_erridr_el1() & ERRIDR_MASK;
+	unsigned int max_idx __unused =
+		(unsigned int) read_erridr_el1() & ERRIDR_MASK;
 
 	assert(idx < max_idx);
 
@@ -221,5 +256,6 @@ static inline void ser_sys_select_record(unsigned int idx)
 /* Library functions to probe Standard Error Record */
 int ser_probe_memmap(uintptr_t base, unsigned int size_num_k, int *probe_data);
 int ser_probe_sysreg(unsigned int idx_start, unsigned int num_idx, int *probe_data);
+#endif /* __ASSEMBLY__ */
 
-#endif /* __RAS_H__ */
+#endif /* RAS_ARCH_H */

@@ -3,8 +3,8 @@
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#ifndef __ARM_DEF_H__
-#define __ARM_DEF_H__
+#ifndef ARM_DEF_H
+#define ARM_DEF_H
 
 #include <arch.h>
 #include <common_def.h>
@@ -40,12 +40,12 @@
  *  within the power-state parameter.
  */
 /* Local power state for power domains in Run state. */
-#define ARM_LOCAL_STATE_RUN	0
+#define ARM_LOCAL_STATE_RUN	U(0)
 /* Local power state for retention. Valid only for CPU power domains */
-#define ARM_LOCAL_STATE_RET	1
+#define ARM_LOCAL_STATE_RET	U(1)
 /* Local power state for OFF/power-down. Valid for CPU and cluster power
    domains */
-#define ARM_LOCAL_STATE_OFF	2
+#define ARM_LOCAL_STATE_OFF	U(2)
 
 /* Memory location options for TSP */
 #define ARM_TRUSTED_SRAM_ID		0
@@ -186,25 +186,25 @@
  * as Group 0 interrupts.
  */
 #define ARM_G1S_IRQ_PROPS(grp) \
-	INTR_PROP_DESC(ARM_IRQ_SEC_PHY_TIMER, GIC_HIGHEST_SEC_PRIORITY, grp, \
+	INTR_PROP_DESC(ARM_IRQ_SEC_PHY_TIMER, GIC_HIGHEST_SEC_PRIORITY, (grp), \
 			GIC_INTR_CFG_LEVEL), \
-	INTR_PROP_DESC(ARM_IRQ_SEC_SGI_1, GIC_HIGHEST_SEC_PRIORITY, grp, \
+	INTR_PROP_DESC(ARM_IRQ_SEC_SGI_1, GIC_HIGHEST_SEC_PRIORITY, (grp), \
 			GIC_INTR_CFG_EDGE), \
-	INTR_PROP_DESC(ARM_IRQ_SEC_SGI_2, GIC_HIGHEST_SEC_PRIORITY, grp, \
+	INTR_PROP_DESC(ARM_IRQ_SEC_SGI_2, GIC_HIGHEST_SEC_PRIORITY, (grp), \
 			GIC_INTR_CFG_EDGE), \
-	INTR_PROP_DESC(ARM_IRQ_SEC_SGI_3, GIC_HIGHEST_SEC_PRIORITY, grp, \
+	INTR_PROP_DESC(ARM_IRQ_SEC_SGI_3, GIC_HIGHEST_SEC_PRIORITY, (grp), \
 			GIC_INTR_CFG_EDGE), \
-	INTR_PROP_DESC(ARM_IRQ_SEC_SGI_4, GIC_HIGHEST_SEC_PRIORITY, grp, \
+	INTR_PROP_DESC(ARM_IRQ_SEC_SGI_4, GIC_HIGHEST_SEC_PRIORITY, (grp), \
 			GIC_INTR_CFG_EDGE), \
-	INTR_PROP_DESC(ARM_IRQ_SEC_SGI_5, GIC_HIGHEST_SEC_PRIORITY, grp, \
+	INTR_PROP_DESC(ARM_IRQ_SEC_SGI_5, GIC_HIGHEST_SEC_PRIORITY, (grp), \
 			GIC_INTR_CFG_EDGE), \
-	INTR_PROP_DESC(ARM_IRQ_SEC_SGI_7, GIC_HIGHEST_SEC_PRIORITY, grp, \
+	INTR_PROP_DESC(ARM_IRQ_SEC_SGI_7, GIC_HIGHEST_SEC_PRIORITY, (grp), \
 			GIC_INTR_CFG_EDGE)
 
 #define ARM_G0_IRQ_PROPS(grp) \
-	INTR_PROP_DESC(ARM_IRQ_SEC_SGI_0, PLAT_SDEI_NORMAL_PRI, grp, \
+	INTR_PROP_DESC(ARM_IRQ_SEC_SGI_0, PLAT_SDEI_NORMAL_PRI, (grp), \
 			GIC_INTR_CFG_EDGE), \
-	INTR_PROP_DESC(ARM_IRQ_SEC_SGI_6, GIC_HIGHEST_SEC_PRIORITY, grp, \
+	INTR_PROP_DESC(ARM_IRQ_SEC_SGI_6, GIC_HIGHEST_SEC_PRIORITY, (grp), \
 			GIC_INTR_CFG_EDGE)
 
 #define ARM_MAP_SHARED_RAM		MAP_REGION_FLAT(		\
@@ -242,14 +242,60 @@
 						MT_MEMORY | MT_RW | MT_SECURE)
 
 /*
- * The number of regions like RO(code), coherent and data required by
+ * Mapping for the BL1 RW region. This mapping is needed by BL2 in order to
+ * share the Mbed TLS heap. Since the heap is allocated inside BL1, it resides
+ * in the BL1 RW region. Hence, BL2 needs access to the BL1 RW region in order
+ * to be able to access the heap.
+ */
+#define ARM_MAP_BL1_RW		MAP_REGION_FLAT(	\
+					BL1_RW_BASE,	\
+					BL1_RW_LIMIT - BL1_RW_BASE, \
+					MT_MEMORY | MT_RW | MT_SECURE)
+
+/*
+ * If SEPARATE_CODE_AND_RODATA=1 we define a region for each section
+ * otherwise one region is defined containing both.
+ */
+#if SEPARATE_CODE_AND_RODATA
+#define ARM_MAP_BL_RO			MAP_REGION_FLAT(			\
+						BL_CODE_BASE,			\
+						BL_CODE_END - BL_CODE_BASE,	\
+						MT_CODE | MT_SECURE),		\
+					MAP_REGION_FLAT(			\
+						BL_RO_DATA_BASE,		\
+						BL_RO_DATA_END			\
+							- BL_RO_DATA_BASE,	\
+						MT_RO_DATA | MT_SECURE)
+#else
+#define ARM_MAP_BL_RO			MAP_REGION_FLAT(			\
+						BL_CODE_BASE,			\
+						BL_CODE_END - BL_CODE_BASE,	\
+						MT_CODE | MT_SECURE)
+#endif
+#if USE_COHERENT_MEM
+#define ARM_MAP_BL_COHERENT_RAM		MAP_REGION_FLAT(			\
+						BL_COHERENT_RAM_BASE,		\
+						BL_COHERENT_RAM_END		\
+							- BL_COHERENT_RAM_BASE, \
+						MT_DEVICE | MT_RW | MT_SECURE)
+#endif
+#if USE_ROMLIB
+#define ARM_MAP_ROMLIB_CODE		MAP_REGION_FLAT(			\
+						ROMLIB_RO_BASE,			\
+						ROMLIB_RO_LIMIT	- ROMLIB_RO_BASE,\
+						MT_CODE | MT_SECURE)
+
+#define ARM_MAP_ROMLIB_DATA		MAP_REGION_FLAT(			\
+						ROMLIB_RW_BASE,			\
+						ROMLIB_RW_END	- ROMLIB_RW_BASE,\
+						MT_MEMORY | MT_RW | MT_SECURE)
+#endif
+
+/*
+ * The max number of regions like RO(code), coherent and data required by
  * different BL stages which need to be mapped in the MMU.
  */
-#if USE_COHERENT_MEM
 # define ARM_BL_REGIONS			4
-#else
-# define ARM_BL_REGIONS			3
-#endif
 
 #define MAX_MMAP_REGIONS		(PLAT_ARM_MMAP_ENTRIES +	\
 					 ARM_BL_REGIONS)
@@ -322,14 +368,23 @@
  ******************************************************************************/
 #define BL1_RO_BASE			PLAT_ARM_TRUSTED_ROM_BASE
 #define BL1_RO_LIMIT			(PLAT_ARM_TRUSTED_ROM_BASE	\
-					 + PLAT_ARM_TRUSTED_ROM_SIZE)
+					 + (PLAT_ARM_TRUSTED_ROM_SIZE - \
+					    PLAT_ARM_MAX_ROMLIB_RO_SIZE))
 /*
  * Put BL1 RW at the top of the Trusted SRAM.
  */
 #define BL1_RW_BASE			(ARM_BL_RAM_BASE +		\
 						ARM_BL_RAM_SIZE -	\
-						PLAT_ARM_MAX_BL1_RW_SIZE)
-#define BL1_RW_LIMIT			(ARM_BL_RAM_BASE + ARM_BL_RAM_SIZE)
+						(PLAT_ARM_MAX_BL1_RW_SIZE +\
+						 PLAT_ARM_MAX_ROMLIB_RW_SIZE))
+#define BL1_RW_LIMIT			(ARM_BL_RAM_BASE + 		\
+					    (ARM_BL_RAM_SIZE - PLAT_ARM_MAX_ROMLIB_RW_SIZE))
+
+#define ROMLIB_RO_BASE			BL1_RO_LIMIT
+#define ROMLIB_RO_LIMIT			(PLAT_ARM_TRUSTED_ROM_BASE + PLAT_ARM_TRUSTED_ROM_SIZE)
+
+#define ROMLIB_RW_BASE			(BL1_RW_BASE + PLAT_ARM_MAX_BL1_RW_SIZE)
+#define ROMLIB_RW_END			(ROMLIB_RW_BASE + PLAT_ARM_MAX_ROMLIB_RW_SIZE)
 
 /*******************************************************************************
  * BL2 specific defines.
@@ -509,4 +564,4 @@
 	SDEI_SHARED_EVENT(ARM_SDEI_DS_EVENT_1, SDEI_DYN_IRQ, SDEI_MAPF_DYNAMIC), \
 	SDEI_SHARED_EVENT(ARM_SDEI_DS_EVENT_2, SDEI_DYN_IRQ, SDEI_MAPF_DYNAMIC)
 
-#endif /* __ARM_DEF_H__ */
+#endif /* ARM_DEF_H */

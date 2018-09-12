@@ -69,24 +69,17 @@ typedef struct arm_tzc_regions_info {
 /*
  * Utility functions common to ARM standard platforms
  */
-void arm_setup_page_tables(uintptr_t total_base,
-			size_t total_size,
-			uintptr_t code_start,
-			uintptr_t code_limit,
-			uintptr_t rodata_start,
-			uintptr_t rodata_limit
-#if USE_COHERENT_MEM
-			, uintptr_t coh_start,
-			uintptr_t coh_limit
-#endif
-);
+void arm_setup_page_tables(const mmap_region_t bl_regions[],
+			   const mmap_region_t plat_regions[]);
+
+void arm_setup_romlib(void);
 
 #if defined(IMAGE_BL31) || (defined(AARCH32) && defined(IMAGE_BL32))
 /*
  * Use this macro to instantiate lock before it is used in below
  * arm_lock_xxx() macros
  */
-#define ARM_INSTANTIATE_LOCK	DEFINE_BAKERY_LOCK(arm_lock)
+#define ARM_INSTANTIATE_LOCK	static DEFINE_BAKERY_LOCK(arm_lock)
 #define ARM_LOCK_GET_INSTANCE	(&arm_lock)
 /*
  * These are wrapper macros to the Coherent Memory Bakery Lock API.
@@ -171,7 +164,6 @@ int arm_validate_psci_entrypoint(uintptr_t entrypoint);
 int arm_validate_ns_entrypoint(uintptr_t entrypoint);
 void arm_system_pwr_domain_save(void);
 void arm_system_pwr_domain_resume(void);
-void arm_program_trusted_mailbox(uintptr_t address);
 int arm_psci_read_mem_protect(int *enabled);
 int arm_nor_psci_write_mem_protect(int val);
 void arm_nor_psci_do_static_mem_protect(void);
@@ -231,6 +223,8 @@ int arm_io_is_toc_valid(void);
 void arm_load_tb_fw_config(void);
 void arm_bl2_set_tb_cfg_addr(void *dtb);
 void arm_bl2_dyn_cfg_init(void);
+void arm_bl1_set_mbedtls_heap(void);
+int arm_get_mbedtls_heap(void **heap_addr, size_t *heap_size);
 
 /*
  * Mandatory functions required in ARM standard platforms
@@ -250,6 +244,9 @@ void plat_arm_pwrc_setup(void);
 void plat_arm_interconnect_init(void);
 void plat_arm_interconnect_enter_coherency(void);
 void plat_arm_interconnect_exit_coherency(void);
+void plat_arm_program_trusted_mailbox(uintptr_t address);
+int plat_arm_bl1_fwu_needed(void);
+void plat_arm_error_handler(int err);
 
 #if ARM_PLAT_MT
 unsigned int plat_arm_get_cpu_pe_count(u_register_t mpidr);
@@ -292,5 +289,6 @@ void plat_arm_sp_min_early_platform_setup(u_register_t arg0, u_register_t arg1,
 /* global variables */
 extern plat_psci_ops_t plat_arm_psci_pm_ops;
 extern const mmap_region_t plat_arm_mmap[];
+extern const unsigned int arm_pm_idle_states[];
 
 #endif /* __PLAT_ARM_H__ */

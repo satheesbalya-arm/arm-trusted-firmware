@@ -4,13 +4,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef __PLATFORM_H__
-#define __PLATFORM_H__
+#ifndef PLATFORM_H
+#define PLATFORM_H
 
 #include <psci.h>
 #include <stdint.h>
-#include <types.h>
-
 
 /*******************************************************************************
  * Forward declarations
@@ -105,6 +103,7 @@ void plat_panic_handler(void) __dead2;
 const char *plat_log_get_prefix(unsigned int log_level);
 void bl2_plat_preload_setup(void);
 int plat_try_next_boot_source(void);
+int plat_get_mbedtls_heap(void **heap_addr, size_t *heap_size);
 
 /*******************************************************************************
  * Mandatory BL1 functions
@@ -401,5 +400,4 @@ unsigned int platform_get_core_pos(unsigned long mpidr) __deprecated;
 
 #endif /* __ENABLE_PLAT_COMPAT__ */
 
-#endif /* __PLATFORM_H__ */
-
+#endif /* PLATFORM_H */

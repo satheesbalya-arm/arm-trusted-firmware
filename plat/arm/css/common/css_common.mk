@@ -32,6 +32,7 @@ BL31_SOURCES		+=	plat/arm/css/drivers/scp/css_pm_scpi.c		\
 				plat/arm/css/drivers/scpi/css_scpi.c
 else
 BL31_SOURCES		+=	plat/arm/css/drivers/scp/css_pm_scmi.c		\
+				plat/arm/css/drivers/scmi/scmi_ap_core_proto.c	\
 				plat/arm/css/drivers/scmi/scmi_common.c		\
 				plat/arm/css/drivers/scmi/scmi_pwr_dmn_proto.c	\
 				plat/arm/css/drivers/scmi/scmi_sys_pwr_proto.c	\
@@ -84,3 +85,12 @@ endif
 # Process CSS_USE_SCMI_SDS_DRIVER flag
 $(eval $(call assert_boolean,CSS_USE_SCMI_SDS_DRIVER))
 $(eval $(call add_define,CSS_USE_SCMI_SDS_DRIVER))
+
+# Process CSS_NON_SECURE_UART flag
+# This undocumented build option is only to enable debug access to the UART
+# from non secure code, which is useful on some platforms.
+# Default (obviously) is off.
+CSS_NON_SECURE_UART		:= 0
+$(eval $(call assert_boolean,CSS_NON_SECURE_UART))
+$(eval $(call add_define,CSS_NON_SECURE_UART))
+

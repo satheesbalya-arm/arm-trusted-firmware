@@ -952,9 +952,9 @@ Function : plat\_disable\_acp()
     Argument : void
     Return   : void
 
-This api allows a platform to disable the Accelerator Coherency Port (if
+This API allows a platform to disable the Accelerator Coherency Port (if
 present) during a cluster power down sequence. The default weak implementation
-doesn't do anything. Since this api is called during the power down sequence,
+doesn't do anything. Since this API is called during the power down sequence,
 it has restrictions for stack usage and it can use the registers x0 - x17 as
 scratch registers. It should preserve the value in x18 register as it is used
 by the caller to store the return address.
@@ -1055,7 +1055,7 @@ next image. This function is currently invoked in BL2 to flush this information
 to the next BL image, when LOAD\_IMAGE\_V2 is enabled.
 
 Function : plat\_log\_get\_prefix()
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -1066,8 +1066,31 @@ This function defines the prefix string corresponding to the `log_level` to be
 prepended to all the log output from TF-A. The `log_level` (argument) will
 correspond to one of the standard log levels defined in debug.h. The platform
 can override the common implementation to define a different prefix string for
-the log output.  The implementation should be robust to future changes that
+the log output. The implementation should be robust to future changes that
 increase the number of log levels.
+
+Function : plat\_get\_mbedtls\_heap()
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+    Arguments : void **heap_addr, size_t *heap_size
+    Return    : int
+
+This function is invoked during Mbed TLS library initialisation to get
+a heap, by means of a starting address and a size. This heap will then be used
+internally by the Mbed TLS library. The heap is requested from the current BL
+stage, i.e. the current BL image inside which Mbed TLS is used.
+
+In the default implementation a heap is statically allocated inside every image
+(i.e. every BL stage) that utilises Mbed TLS. So, in this case, the function
+simply returns the address and size of this "pre-allocated" heap. However, by
+overriding the default implementation, platforms have the potential to optimise
+memory usage. For example, on some Arm platforms, the Mbed TLS heap is shared
+between BL1 and BL2 stages and, thus, the necessary space is not reserved
+twice.
+
+On success the function should return 0 and a negative error code otherwise.
 
 Modifications specific to a Boot Loader stage
 ---------------------------------------------
@@ -2850,6 +2873,106 @@ you can keep the default implementation here (which calls ``console_flush()``).
 If you're trying to debug crashes in BL1, you can call the console_xx_core_flush
 function exported by some console drivers from here.
 
+Extternal Abort handling and RAS Support
+----------------------------------------
+
+Function : plat_ea_handler
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+    Argument : int
+    Argument : uint64_t
+    Argument : void *
+    Argument : void *
+    Argument : uint64_t
+    Return   : void
+
+This function is invoked by the RAS framework for the platform to handle an
+External Abort received at EL3. The intention of the function is to attempt to
+resolve the cause of External Abort and return; if that's not possible, to
+initiate orderly shutdown of the system.
+
+The first parameter (``int ea_reason``) indicates the reason for External Abort.
+Its value is one of ``ERROR_EA_*`` constants defined in ``ea_handle.h``.
+
+The second parameter (``uint64_t syndrome``) is the respective syndrome
+presented to EL3 after having received the External Abort. Depending on the
+nature of the abort (as can be inferred from the ``ea_reason`` parameter), this
+can be the content of either ``ESR_EL3`` or ``DISR_EL1``.
+
+The third parameter (``void *cookie``) is unused for now. The fourth parameter
+(``void *handle``) is a pointer to the preempted context. The fifth parameter
+(``uint64_t flags``) indicates the preempted security state. These parameters
+are received from the top-level exception handler.
+
+If ``RAS_EXTENSION`` is set to ``1``, the default implementation of this
+function iterates through RAS handlers registered by the platform. If any of the
+RAS handlers resolve the External Abort, no further action is taken.
+
+If ``RAS_EXTENSION`` is set to ``0``, or if none of the platform RAS handlers
+could resolve the External Abort, the default implementation prints an error
+message, and panics.
+
+Function : plat_handle_uncontainable_ea
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+    Argument : int
+    Argument : uint64_t
+    Return   : void
+
+This function is invoked by the RAS framework when an External Abort of
+Uncontainable type is received at EL3. Due to the critical nature of
+Uncontainable errors, the intention of this function is to initiate orderly
+shutdown of the system, and is not expected to return.
+
+This function must be implemented in assembly.
+
+The first and second parameters are the same as that of ``plat_ea_handler``.
+
+The default implementation of this function calls
+``report_unhandled_exception``.
+
+Function : plat_handle_double_fault
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+    Argument : int
+    Argument : uint64_t
+    Return   : void
+
+This function is invoked by the RAS framework when another External Abort is
+received at EL3 while one is already being handled. I.e., a call to
+``plat_ea_handler`` is outstanding. Due to its critical nature, the intention of
+this function is to initiate orderly shutdown of the system, and is not expected
+recover or return.
+
+This function must be implemented in assembly.
+
+The first and second parameters are the same as that of ``plat_ea_handler``.
+
+The default implementation of this function calls
+``report_unhandled_exception``.
+
+Function : plat_handle_el3_ea
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+    Return   : void
+
+This function is invoked when an External Abort is received while executing in
+EL3. Due to its critical nature, the intention of this function is to initiate
+orderly shutdown of the system, and is not expected recover or return.
+
+This function must be implemented in assembly.
+
+The default implementation of this function calls
+``report_unhandled_exception``.
+
 Build flags
 -----------
 
@@ -2882,32 +3005,13 @@ contains those C library definitions required by the local implementation. If
 more functionality is required, the needed library functions will need to be
 added to the local implementation.
 
-Versions of `FreeBSD`_ headers can be found in ``include/lib/stdlib``. Some of
-these headers have been cut down in order to simplify the implementation. In
-order to minimize changes to the header files, the `FreeBSD`_ layout has been
-maintained. The generic C library definitions can be found in
-``include/lib/stdlib`` with more system and machine specific declarations in
-``include/lib/stdlib/sys`` and ``include/lib/stdlib/machine``.
+Some C headers have been obtained from `FreeBSD`_ and `SCC`_, while others have
+been written specifically for TF-A. Fome implementation files have been obtained
+from `FreeBSD`_, others have been written specifically for TF-A as well. The
+files can be found in ``include/lib/libc`` and ``lib/libc``.
 
-The local C library implementations can be found in ``lib/stdlib``. In order to
-extend the C library these files may need to be modified. It is recommended to
-use a release version of `FreeBSD`_ as a starting point.
-
-The C library header files in the `FreeBSD`_ source tree are located in the
-``include`` and ``sys/sys`` directories. `FreeBSD`_ machine specific definitions
-can be found in the ``sys/<machine-type>`` directories. These files define things
-like 'the size of a pointer' and 'the range of an integer'. Since an AArch64
-port for `FreeBSD`_ does not yet exist, the machine specific definitions are
-based on existing machine types with similar properties (for example SPARC64).
-
-Where possible, C library function implementations were taken from `FreeBSD`_
-as found in the ``lib/libc`` directory.
-
-A copy of the `FreeBSD`_ sources can be downloaded with ``git``.
-
-::
-
-    git clone git://github.com/freebsd/freebsd.git -b origin/release/9.2.0
+SCC can be found in `http://www.simple-cc.org/`_. A copy of the `FreeBSD`_
+sources can be obtained from `http://github.com/freebsd/freebsd`_.
 
 Storage abstraction layer
 -------------------------
@@ -2982,3 +3086,4 @@ amount of open resources per driver.
 .. _Arm Generic Interrupt Controller version 2.0 (GICv2): http://infocenter.arm.com/help/topic/com.arm.doc.ihi0048b/index.html
 .. _3.0 (GICv3): http://infocenter.arm.com/help/topic/com.arm.doc.ihi0069b/index.html
 .. _FreeBSD: http://www.freebsd.org
+.. _SCC: http://www.simple-cc.org/

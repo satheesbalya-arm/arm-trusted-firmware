@@ -7,6 +7,7 @@
 #include <arch.h>
 #include <arm_def.h>
 #include <arm_xlat_tables.h>
+#include <assert.h>
 #include <bl1.h>
 #include <bl_common.h>
 #include <plat_arm.h>
@@ -22,12 +23,38 @@
 #pragma weak bl1_platform_setup
 #pragma weak bl1_plat_sec_mem_layout
 #pragma weak bl1_plat_prepare_exit
+#pragma weak bl1_plat_get_next_image_id
+#pragma weak plat_arm_bl1_fwu_needed
 
+#define MAP_BL1_TOTAL		MAP_REGION_FLAT(			\
+					bl1_tzram_layout.total_base,	\
+					bl1_tzram_layout.total_size,	\
+					MT_MEMORY | MT_RW | MT_SECURE)
+/*
+ * If SEPARATE_CODE_AND_RODATA=1 we define a region for each section
+ * otherwise one region is defined containing both
+ */
+#if SEPARATE_CODE_AND_RODATA
+#define MAP_BL1_RO		MAP_REGION_FLAT(			\
+					BL_CODE_BASE,			\
+					BL1_CODE_END - BL_CODE_BASE,	\
+					MT_CODE | MT_SECURE),		\
+				MAP_REGION_FLAT(			\
+					BL1_RO_DATA_BASE,		\
+					BL1_RO_DATA_END			\
+						- BL_RO_DATA_BASE,	\
+					MT_RO_DATA | MT_SECURE)
+#else
+#define MAP_BL1_RO		MAP_REGION_FLAT(			\
+					BL_CODE_BASE,			\
+					BL1_CODE_END - BL_CODE_BASE,	\
+					MT_CODE | MT_SECURE)
+#endif
 
 /* Data structure which holds the extents of the trusted SRAM for BL1*/
 static meminfo_t bl1_tzram_layout;
 
-meminfo_t *bl1_plat_sec_mem_layout(void)
+struct meminfo *bl1_plat_sec_mem_layout(void)
 {
 	return &bl1_tzram_layout;
 }
@@ -84,22 +111,29 @@ void bl1_early_platform_setup(void)
  *****************************************************************************/
 void arm_bl1_plat_arch_setup(void)
 {
-	arm_setup_page_tables(bl1_tzram_layout.total_base,
-			      bl1_tzram_layout.total_size,
-			      BL_CODE_BASE,
-			      BL1_CODE_END,
-			      BL1_RO_DATA_BASE,
-			      BL1_RO_DATA_END
 #if USE_COHERENT_MEM
-			      , BL_COHERENT_RAM_BASE,
-			      BL_COHERENT_RAM_END
+	/* ARM platforms dont use coherent memory in BL1 */
+	assert((BL_COHERENT_RAM_END - BL_COHERENT_RAM_BASE) == 0U);
 #endif
-			     );
+
+	const mmap_region_t bl_regions[] = {
+		MAP_BL1_TOTAL,
+		MAP_BL1_RO,
+#if USE_ROMLIB
+		ARM_MAP_ROMLIB_CODE,
+		ARM_MAP_ROMLIB_DATA,
+ #endif
+		{0}
+	};
+
+	arm_setup_page_tables(bl_regions, plat_arm_get_mmap());
 #ifdef AARCH32
-	enable_mmu_secure(0);
+	enable_mmu_svc_mon(0);
 #else
 	enable_mmu_el3(0);
 #endif /* AARCH32 */
+
+	arm_setup_romlib();
 }
 
 void bl1_plat_arch_setup(void)
@@ -117,7 +151,11 @@ void arm_bl1_platform_setup(void)
 	plat_arm_io_setup();
 #if LOAD_IMAGE_V2
 	arm_load_tb_fw_config();
-#endif
+#if TRUSTED_BOARD_BOOT
+	/* Share the Mbed TLS heap info with other images */
+	arm_bl1_set_mbedtls_heap();
+#endif /* TRUSTED_BOARD_BOOT */
+#endif /* LOAD_IMAGE_V2 */
 	/*
 	 * Allow access to the System counter timer module and program
 	 * counter frequency for non secure images during FWU
@@ -144,10 +182,19 @@ void bl1_plat_prepare_exit(entry_point_info_t *ep_info)
 	 * in order to release secondary CPUs from their holding pen and make
 	 * them jump there.
 	 */
-	arm_program_trusted_mailbox(ep_info->pc);
+	plat_arm_program_trusted_mailbox(ep_info->pc);
 	dsbsy();
 	sev();
 #endif
+}
+
+/*
+ * On Arm platforms, the FWU process is triggered when the FIP image has
+ * been tampered with.
+ */
+int plat_arm_bl1_fwu_needed(void)
+{
+	return (arm_io_is_toc_valid() != 1);
 }
 
 /*******************************************************************************
@@ -156,7 +203,7 @@ void bl1_plat_prepare_exit(entry_point_info_t *ep_info)
  ******************************************************************************/
 unsigned int bl1_plat_get_next_image_id(void)
 {
-	if (!arm_io_is_toc_valid())
+	if (plat_arm_bl1_fwu_needed() != 0)
 		return NS_BL1U_IMAGE_ID;
 
 	return BL2_IMAGE_ID;

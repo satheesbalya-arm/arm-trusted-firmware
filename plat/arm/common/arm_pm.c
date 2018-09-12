@@ -14,15 +14,9 @@
 #include <platform_def.h>
 #include <psci.h>
 
-/* Allow ARM Standard platforms to override this function */
+/* Allow ARM Standard platforms to override these functions */
 #pragma weak plat_arm_psci_override_pm_ops
-
-/* Standard ARM platforms are expected to export plat_arm_psci_pm_ops */
-extern plat_psci_ops_t plat_arm_psci_pm_ops;
-
-#if ARM_RECOM_STATE_ID_ENC
-extern unsigned int arm_pm_idle_states[];
-#endif /* __ARM_RECOM_STATE_ID_ENC__ */
+#pragma weak plat_arm_program_trusted_mailbox
 
 #if !ARM_RECOM_STATE_ID_ENC
 /*******************************************************************************
@@ -32,11 +26,11 @@ extern unsigned int arm_pm_idle_states[];
 int arm_validate_power_state(unsigned int power_state,
 			    psci_power_state_t *req_state)
 {
-	int pstate = psci_get_pstate_type(power_state);
-	int pwr_lvl = psci_get_pstate_pwrlvl(power_state);
-	int i;
+	unsigned int pstate = psci_get_pstate_type(power_state);
+	unsigned int pwr_lvl = psci_get_pstate_pwrlvl(power_state);
+	unsigned int i;
 
-	assert(req_state);
+	assert(req_state > 0U);
 
 	if (pwr_lvl > PLAT_MAX_PWR_LVL)
 		return PSCI_E_INVALID_PARAMS;
@@ -61,7 +55,7 @@ int arm_validate_power_state(unsigned int power_state,
 	/*
 	 * We expect the 'state id' to be zero.
 	 */
-	if (psci_get_pstate_id(power_state))
+	if (psci_get_pstate_id(power_state) != 0U)
 		return PSCI_E_INVALID_PARAMS;
 
 	return PSCI_E_SUCCESS;
@@ -192,11 +186,11 @@ void arm_system_pwr_domain_resume(void)
 }
 
 /*******************************************************************************
- * Private function to program the mailbox for a cpu before it is released
+ * ARM platform function to program the mailbox for a cpu before it is released
  * from reset. This function assumes that the Trusted mail box base is within
  * the ARM_SHARED_RAM region
  ******************************************************************************/
-void arm_program_trusted_mailbox(uintptr_t address)
+void plat_arm_program_trusted_mailbox(uintptr_t address)
 {
 	uintptr_t *mailbox = (void *) PLAT_ARM_TRUSTED_MAILBOX_BASE;
 
@@ -221,6 +215,6 @@ int plat_setup_psci_ops(uintptr_t sec_entrypoint,
 	*psci_ops = plat_arm_psci_override_pm_ops(&plat_arm_psci_pm_ops);
 
 	/* Setup mailbox with entry point. */
-	arm_program_trusted_mailbox(sec_entrypoint);
+	plat_arm_program_trusted_mailbox(sec_entrypoint);
 	return 0;
 }

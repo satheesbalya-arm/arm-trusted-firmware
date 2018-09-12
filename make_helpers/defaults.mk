@@ -10,6 +10,9 @@
 # poised to handle dependencies, as all build variables would have a default
 # value by then.
 
+# Use T32 by default
+AARCH32_INSTRUCTION_SET		:= T32
+
 # The AArch32 Secure Payload to be built as BL32 image
 AARCH32_SP			:= none
 
@@ -61,6 +64,9 @@ DEFAULT_PLAT			:= fvp
 # Enable capability to disable authentication dynamically. Only meant for
 # development platforms.
 DYN_DISABLE_AUTH		:= 0
+
+# Build option to enable MPAM for lower ELs
+ENABLE_MPAM_FOR_LOWER_ELS	:= 0
 
 # Flag to enable Performance Measurement Framework
 ENABLE_PMF			:= 0
@@ -165,6 +171,9 @@ TRUSTED_BOARD_BOOT		:= 0
 
 # Build option to choose whether Trusted firmware uses Coherent memory or not.
 USE_COHERENT_MEM		:= 1
+
+# Build option to choose wheter Trusted firmware uses library at ROM
+USE_ROMLIB				:= 0
 
 # Use tbbr_oid.h instead of platform_oid.h
 USE_TBBR_DEFS			= $(ERROR_DEPRECATED)

@@ -19,10 +19,12 @@ BL31_SOURCES		+=	bl31/bl31_main.c				\
 				bl31/interrupt_mgmt.c				\
 				bl31/aarch64/bl31_entrypoint.S			\
 				bl31/aarch64/crash_reporting.S			\
+				bl31/aarch64/ea_delegate.S			\
 				bl31/aarch64/runtime_exceptions.S		\
 				bl31/bl31_context_mgmt.c			\
 				common/runtime_svc.c				\
 				lib/aarch64/setjmp.S				\
+				lib/cpus/aarch64/dsu_helpers.S			\
 				plat/common/aarch64/platform_mp_stack.S		\
 				services/arm_arch_svc/arm_arch_svc_setup.c	\
 				services/std_svc/std_svc_setup.c		\
@@ -60,6 +62,10 @@ endif
 
 ifeq (${ENABLE_SVE_FOR_NS},1)
 BL31_SOURCES		+=	lib/extensions/sve/sve.c
+endif
+
+ifeq (${ENABLE_MPAM_FOR_LOWER_ELS},1)
+BL31_SOURCES		+=	lib/extensions/mpam/mpam.c
 endif
 
 ifeq (${WORKAROUND_CVE_2017_5715},1)

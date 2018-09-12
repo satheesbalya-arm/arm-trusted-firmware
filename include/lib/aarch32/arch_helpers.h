@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2018, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -8,8 +8,9 @@
 #define __ARCH_HELPERS_H__
 
 #include <arch.h>	/* for additional register definitions */
+#include <cdefs.h>
 #include <stdint.h>
-#include <sys/types.h>
+#include <string.h>
 
 /**********************************************************************
  * Macros which create inline functions to read or write CPU system
@@ -209,7 +210,12 @@ DEFINE_SYSOP_FUNC(sev)
 DEFINE_SYSOP_TYPE_FUNC(dsb, sy)
 DEFINE_SYSOP_TYPE_FUNC(dmb, sy)
 DEFINE_SYSOP_TYPE_FUNC(dmb, st)
+
+/* dmb ld is not valid for armv7/thumb machines */
+#if ARM_ARCH_MAJOR != 7
 DEFINE_SYSOP_TYPE_FUNC(dmb, ld)
+#endif
+
 DEFINE_SYSOP_TYPE_FUNC(dsb, ish)
 DEFINE_SYSOP_TYPE_FUNC(dsb, ishst)
 DEFINE_SYSOP_TYPE_FUNC(dmb, ish)
@@ -275,6 +281,10 @@ DEFINE_COPROCR_RW_FUNCS(hdcr, HDCR)
 DEFINE_COPROCR_RW_FUNCS(cnthp_ctl, CNTHP_CTL)
 DEFINE_COPROCR_READ_FUNC(pmcr, PMCR)
 
+DEFINE_COPROCR_RW_FUNCS(ats1cpr, ATS1CPR)
+DEFINE_COPROCR_RW_FUNCS(ats1hr, ATS1HR)
+DEFINE_COPROCR_RW_FUNCS_64(par, PAR_64)
+
 DEFINE_COPROCR_RW_FUNCS(nsacr, NSACR)
 
 /* AArch32 coproc registers for 32bit MMU descriptor support */
@@ -300,6 +310,7 @@ DEFINE_TLBIOP_FUNC(allis, TLBIALLIS)
 DEFINE_TLBIOP_PARAM_FUNC(mva, TLBIMVA)
 DEFINE_TLBIOP_PARAM_FUNC(mvaa, TLBIMVAA)
 DEFINE_TLBIOP_PARAM_FUNC(mvaais, TLBIMVAAIS)
+DEFINE_TLBIOP_PARAM_FUNC(mvahis, TLBIMVAHIS)
 
 /*
  * BPI operation prototypes.
@@ -317,15 +328,35 @@ DEFINE_DCOP_PARAM_FUNC(cvac, DCCMVAC)
 #define dsb()			dsbsy()
 #define dmb()			dmbsy()
 
+/* dmb ld is not valid for armv7/thumb machines, so alias it to dmb */
+#if ARM_ARCH_MAJOR == 7
+#define	dmbld()			dmb()
+#endif
+
 #define IS_IN_SECURE() \
 	(GET_NS_BIT(read_scr()) == 0)
 
+#define IS_IN_HYP()	(GET_M32(read_cpsr()) == MODE32_hyp)
+#define IS_IN_SVC()	(GET_M32(read_cpsr()) == MODE32_svc)
+#define IS_IN_MON()	(GET_M32(read_cpsr()) == MODE32_mon)
+#define IS_IN_EL2()	IS_IN_HYP()
  /*
   * If EL3 is AArch32, then secure PL1 and monitor mode correspond to EL3
   */
 #define IS_IN_EL3() \
 	((GET_M32(read_cpsr()) == MODE32_mon) ||	\
 		(IS_IN_SECURE() && (GET_M32(read_cpsr()) != MODE32_usr)))
+
+static inline unsigned int get_current_el(void)
+{
+	if (IS_IN_EL3()) {
+		return 3U;
+	} else if (IS_IN_EL2()) {
+		return 2U;
+	} else {
+		return 1U;
+	}
+}
 
 /* Macros for compatibility with AArch64 system registers */
 #define read_mpidr_el1()	read_mpidr()
